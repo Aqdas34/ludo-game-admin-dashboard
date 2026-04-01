@@ -1,11 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Users,
   LayoutDashboard,
   Gamepad2,
   Search,
   Bell,
-  TrendingUp,
   DollarSign,
   Trophy,
   Trash2,
@@ -38,6 +37,7 @@ function App() {
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
   const [achievements, setAchievements] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchData();
@@ -46,23 +46,30 @@ function App() {
   }, []);
 
   const fetchData = async () => {
+    setLoading(true);
     try {
-      const [statsRes, usersRes, gamesRes, logsRes, achvRes] = await Promise.all([
-        axios.get(`${BASE_URL}/stats`),
-        axios.get(`${BASE_URL}/users`),
-        axios.get(`${BASE_URL}/games/live`),
-        axios.get(`${BASE_URL}/audit-logs`),
-        axios.get(`${BASE_URL}/achievements`)
-      ]);
-      setStats(statsRes.data.stats);
-      setUsers(usersRes.data.users);
-      setLiveGames(gamesRes.data.rooms);
-      setAuditLogs(logsRes.data.logs);
-      setAchievements(achvRes.data.achievements || []);
+      // Fetch Stats
+      axios.get(`${BASE_URL}/stats`).then(res => setStats(res.data.stats)).catch(e => console.error("Stats fail:", e));
+      
+      // Fetch Users
+      axios.get(`${BASE_URL}/users`).then(res => setUsers(res.data.users)).catch(e => console.error("Users fail:", e));
+      
+      // Fetch Live Games
+      axios.get(`${BASE_URL}/games/live`).then(res => setLiveGames(res.data.rooms)).catch(e => console.error("Games fail:", e));
+      
+      // Fetch Audit Logs
+      axios.get(`${BASE_URL}/audit-logs`).then(res => setAuditLogs(res.data.logs)).catch(e => console.error("Logs fail:", e));
+      
+      // Fetch Achievements
+      axios.get(`${BASE_URL}/achievements`).then(res => setAchievements(res.data.achievements || [])).catch(e => console.error("Achv fail:", e));
+
+      setError(null);
     } catch (error) {
-      console.error("Error fetching data:", error);
+      console.error("Global fetch error:", error);
+      setError("COMMUNICATION BREACH: Backend Unreachable.");
     } finally {
-      setLoading(false);
+      // Set loading to false after a short delay to allow parallel promises to start resolving
+      setTimeout(() => setLoading(false), 800);
     }
   };
 
@@ -71,15 +78,15 @@ function App() {
       {/* Sidebar */}
       <aside className="w-72 border-r border-white/5 flex flex-col p-6 space-y-8 bg-premium-card/30 backdrop-blur-3xl">
         <div className="flex items-center space-x-3 px-2 mb-4">
-          <div className="w-10 h-10 rounded-xl premium-gradient flex items-center justify-center neon-glow">
-            <Gamepad2 className="text-white w-6 h-6" />
+          <div className="w-12 h-12 rounded-xl flex items-center justify-center p-1.5 bg-white/5 border border-white/10 shadow-neon-purple mt-2">
+            <img src="./logo.png" alt="XLUDO" className="w-full h-full object-contain" />
           </div>
-          <div className="flex flex-col">
-            <span className="text-xl font-black tracking-tighter text-white">
-              DREAMLUDO
+          <div className="flex flex-col pt-3">
+            <span className="text-2xl font-black tracking-tighter text-white leading-none">
+              XLUDO
             </span>
-            <span className="text-[10px] font-bold text-premium-accent tracking-[0.2em] uppercase">
-              Admin Ops
+            <span className="text-[9px] font-bold text-premium-accent tracking-[0.3em] uppercase mt-1">
+              Command Center
             </span>
           </div>
         </div>
@@ -87,25 +94,31 @@ function App() {
         <nav className="flex-1 space-y-2">
           <SidebarLink
             icon={<LayoutDashboard size={20} />}
-            label="Dashboard"
+            label="Match Statistics"
             active={activeTab === 'dashboard'}
             onClick={() => setActiveTab('dashboard')}
           />
           <SidebarLink
             icon={<Users size={20} />}
-            label="User Arena"
+            label="User Management"
             active={activeTab === 'users'}
             onClick={() => setActiveTab('users')}
           />
           <SidebarLink
             icon={<Trophy size={20} />}
-            label="Achievements"
+            label="User Ranks"
+            active={activeTab === 'ranks'}
+            onClick={() => setActiveTab('ranks')}
+          />
+          <SidebarLink
+            icon={<Diamond size={20} />}
+            label="Gem Achievements"
             active={activeTab === 'achievements'}
             onClick={() => setActiveTab('achievements')}
           />
           <SidebarLink
             icon={<Zap size={20} />}
-            label="Live Games"
+            label="Live Matches"
             active={activeTab === 'games'}
             onClick={() => setActiveTab('games')}
           />
@@ -133,7 +146,10 @@ function App() {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col overflow-hidden bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-premium-accent/5 via-premium-dark to-premium-dark">
+      <main className="flex-1 flex flex-col overflow-hidden bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-premium-accent/10 via-premium-dark to-premium-dark relative">
+        {/* Animated Background Blur */}
+        <div className="absolute top-[-10%] right-[-10%] w-[40%] h-[40%] bg-premium-accent/5 rounded-full blur-[120px] animate-pulse-slow pointer-events-none" />
+        <div className="absolute bottom-[-5%] left-[-5%] w-[30%] h-[30%] bg-premium-secondary/5 rounded-full blur-[100px] animate-pulse-slow pointer-events-none" />
         {/* Header */}
         <header className="h-20 border-b border-white/5 flex items-center justify-between px-10 bg-premium-dark/40 backdrop-blur-md z-10">
           <div className="relative w-96 group">
@@ -166,12 +182,28 @@ function App() {
 
         {/* Viewport */}
         <div className="flex-1 overflow-y-auto p-10 custom-scrollbar">
-          {activeTab === 'dashboard' && <DashboardHome stats={stats} loading={loading} />}
-          {activeTab === 'users' && <UserList users={users} loading={loading} onRefresh={fetchData} />}
-          {activeTab === 'achievements' && <AchievementList achievements={achievements} loading={loading} onRefresh={fetchData} />}
-          {activeTab === 'games' && <LiveGames rooms={liveGames} loading={loading} />}
-          {activeTab === 'logs' && <AuditLogs logs={auditLogs} loading={loading} />}
-          {activeTab === 'broadcast' && <Broadcaster />}
+          {error && (
+            <div className="h-full flex flex-col items-center justify-center space-y-6 animate-pulse">
+              <ShieldAlert size={64} className="text-premium-accent" />
+              <div className="text-center space-y-2">
+                <h2 className="text-2xl font-black text-white uppercase italic">{error}</h2>
+                <p className="text-premium-muted font-medium">Verify Backend Core (Port 3005) & Database Status</p>
+              </div>
+              <button 
+                onClick={fetchData} 
+                className="px-8 py-3 bg-white/5 border border-white/10 rounded-2xl text-premium-accent font-black uppercase tracking-widest hover:bg-premium-accent/10 transition-all"
+              >
+                Retry Reconnection
+              </button>
+            </div>
+          )}
+          {!error && activeTab === 'dashboard' && <DashboardHome stats={stats} loading={loading} />}
+          {!error && activeTab === 'users' && <UserList users={users} loading={loading} onRefresh={fetchData} />}
+          {!error && activeTab === 'ranks' && <UserRanks users={users} loading={loading} />}
+          {!error && activeTab === 'achievements' && <AchievementList achievements={achievements} loading={loading} onRefresh={fetchData} />}
+          {!error && activeTab === 'games' && <LiveGames rooms={liveGames} loading={loading} />}
+          {!error && activeTab === 'logs' && <AuditLogs logs={auditLogs} loading={loading} />}
+          {!error && activeTab === 'broadcast' && <Broadcaster />}
         </div>
       </main>
     </div>
@@ -218,7 +250,7 @@ function SidebarLink({ icon, label, active, onClick }: any) {
     >
       <span className={`${active ? 'scale-110' : ''} transition-transform`}>{icon}</span>
       <span className="font-bold tracking-tight text-sm">{label}</span>
-      {active && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-premium-accent shadow-[0_0_8px_#FF004D]" />}
+      {active && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-premium-accent shadow-neon-purple ring-2 ring-premium-accent/20" />}
     </button>
   );
 }
@@ -244,7 +276,12 @@ function StatsCard({ icon, label, value, trend, colorClass }: any) {
 }
 
 function DashboardHome({ stats, loading }: { stats: Stats | null, loading: boolean }) {
-  if (loading) return <div className="h-full flex items-center justify-center text-premium-muted font-bold tracking-widest">CALIBRATING METRICS...</div>;
+  if (loading) return (
+    <div className="h-full flex flex-col items-center justify-center space-y-4">
+      <div className="w-12 h-12 border-4 border-premium-accent border-t-transparent rounded-full animate-spin" />
+      <div className="text-premium-muted font-bold tracking-widest uppercase">CALIBRATING METRICS...</div>
+    </div>
+  );
 
   return (
     <div className="space-y-10 animate-in fade-in slide-in-from-right-4 duration-700">
@@ -276,11 +313,11 @@ function DashboardHome({ stats, loading }: { stats: Stats | null, loading: boole
           colorClass="bg-emerald-400"
         />
         <StatsCard
-          icon={<Diamond className="text-cyan-400" />}
+          icon={<Diamond className="text-premium-secondary" />}
           label="Platform Gems"
           value={(stats?.totalGems || 0).toLocaleString()}
-          trend="Circulating"
-          colorClass="bg-cyan-400"
+          trend="In Circulation"
+          colorClass="bg-premium-secondary"
         />
       </div>
 
@@ -562,8 +599,8 @@ function LiveGames({ rooms, loading }: { rooms: any[], loading: boolean }) {
   return (
     <div className="space-y-8 animate-in fade-in duration-700">
       <div>
-        <h1 className="text-4xl font-black text-white tracking-tighter uppercase italic">Combat Scouter</h1>
-        <p className="text-premium-muted font-medium mt-2">Live traffic and active rooms monitoring</p>
+        <h1 className="text-4xl font-black text-white tracking-tighter uppercase italic">Live Matches</h1>
+        <p className="text-premium-muted font-medium mt-2">Active game traffic and real-time monitoring</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -589,7 +626,7 @@ function LiveGames({ rooms, loading }: { rooms: any[], loading: boolean }) {
               </div>
               <div className="text-right">
                 <span className="text-[10px] font-black text-premium-muted uppercase tracking-widest block">Deployment</span>
-                <span className="text-sm font-bold text-white">{room.players.length} / {room.totalPlayerCount} Heroes</span>
+                <span className="text-sm font-bold text-white">{room.players.length} / {room.totalPlayerCount} Players</span>
               </div>
             </div>
           </div>
@@ -600,6 +637,61 @@ function LiveGames({ rooms, loading }: { rooms: any[], loading: boolean }) {
             <p className="font-black uppercase tracking-[0.3em] text-sm">Quiet sector — No battles detected</p>
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+function UserRanks({ users, loading }: { users: any[], loading: boolean }) {
+  if (loading) return <div className="h-full flex items-center justify-center text-premium-muted font-bold tracking-widest uppercase">Calculating Standings...</div>;
+
+  // Derive Ranks (Sorted by Win Balance) - Added Safety Check
+  const rankedUsers = Array.isArray(users) 
+    ? [...users].sort((a, b) => (b.wonBal || 0) - (a.wonBal || 0))
+    : [];
+
+  return (
+    <div className="space-y-8 animate-in slide-in-from-right-4 duration-700">
+      <div>
+        <h1 className="text-4xl font-black text-white tracking-tighter uppercase italic">User Ranks</h1>
+        <p className="text-premium-muted font-medium mt-2">Leaderboard and performance standing based on earnings</p>
+      </div>
+
+      <div className="glass-card overflow-hidden">
+        <table className="w-full text-left">
+          <thead>
+            <tr className="bg-white/5 border-b border-white/5">
+              <th className="px-8 py-5 text-premium-muted font-black uppercase tracking-widest text-[10px]">Rank</th>
+              <th className="px-8 py-5 text-premium-muted font-black uppercase tracking-widest text-[10px]">Commandant</th>
+              <th className="px-8 py-5 text-premium-muted font-black uppercase tracking-widest text-[10px]">Net Earnings (Spoils)</th>
+              <th className="px-8 py-5 text-premium-muted font-black uppercase tracking-widest text-[10px]">Status</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-white/5">
+            {rankedUsers.map((user, idx) => (
+              <tr key={user.id} className="hover:bg-white/[0.02] transition-colors group">
+                <td className="px-8 py-6">
+                  <span className={`text-2xl font-black italic ${idx === 0 ? 'text-yellow-400' : idx === 1 ? 'text-slate-400' : idx === 2 ? 'text-orange-400' : 'text-premium-muted'}`}>
+                    #{idx + 1}
+                  </span>
+                </td>
+                <td className="px-8 py-6">
+                  <div className="flex items-center space-x-4">
+                    <div className="font-black text-white text-base tracking-tight">{user.username}</div>
+                  </div>
+                </td>
+                <td className="px-8 py-6 text-emerald-400 font-black font-mono text-xl">
+                  ₹{Number(user.wonBal).toLocaleString()}
+                </td>
+                <td className="px-8 py-6">
+                  <div className={user.isBanned ? 'text-premium-accent font-black uppercase text-[10px]' : 'text-emerald-500 font-bold uppercase text-[10px]'}>
+                    {user.isBanned ? 'Restricted' : 'Active Duty'}
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );

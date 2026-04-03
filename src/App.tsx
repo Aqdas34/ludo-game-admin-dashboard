@@ -36,6 +36,7 @@ function App() {
   const [liveGames, setLiveGames] = useState<any[]>([]);
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
   const [achievements, setAchievements] = useState<any[]>([]);
+  const [gemPackages, setGemPackages] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -62,6 +63,9 @@ function App() {
       
       // Fetch Achievements
       axios.get(`${BASE_URL}/achievements`).then(res => setAchievements(res.data.achievements || [])).catch(e => console.error("Achv fail:", e));
+
+      // Fetch Gem Packages
+      axios.get(`${BASE_URL}/gem-packages`).then(res => setGemPackages(res.data.packages || [])).catch(e => console.error("Gems fail:", e));
 
       setError(null);
     } catch (error) {
@@ -115,6 +119,12 @@ function App() {
             label="Gem Achievements"
             active={activeTab === 'achievements'}
             onClick={() => setActiveTab('achievements')}
+          />
+          <SidebarLink
+            icon={<Diamond size={20} />}
+            label="Gem Shop Manager"
+            active={activeTab === 'gemstore'}
+            onClick={() => setActiveTab('gemstore')}
           />
           <SidebarLink
             icon={<Zap size={20} />}
@@ -201,6 +211,7 @@ function App() {
           {!error && activeTab === 'users' && <UserList users={users} loading={loading} onRefresh={fetchData} />}
           {!error && activeTab === 'ranks' && <UserRanks users={users} loading={loading} />}
           {!error && activeTab === 'achievements' && <AchievementList achievements={achievements} loading={loading} onRefresh={fetchData} />}
+          {!error && activeTab === 'gemstore' && <GemStoreManager packages={gemPackages} loading={loading} onRefresh={fetchData} />}
           {!error && activeTab === 'games' && <LiveGames rooms={liveGames} loading={loading} />}
           {!error && activeTab === 'logs' && <AuditLogs logs={auditLogs} loading={loading} />}
           {!error && activeTab === 'broadcast' && <Broadcaster />}
@@ -211,6 +222,211 @@ function App() {
 }
 
 // --- API Helpers ---
+
+function GemStoreManager({ packages, loading, onRefresh }: { packages: any[], loading: boolean, onRefresh: () => void }) {
+  const [showAdd, setShowAdd] = useState(false);
+  const [newPkg, setNewPkg] = useState({
+    id: '',
+    name: '',
+    gems_amount: 0,
+    bonus_gems: 0,
+    price: 0,
+    currency: 'SAR',
+    is_popular: false,
+    sort_order: 0,
+    is_active: true
+  });
+
+  const handleCreate = async () => {
+    if (!newPkg.id || !newPkg.name || newPkg.price <= 0) return;
+    try {
+      await axios.post(`${BASE_URL}/gem-packages`, newPkg);
+      setShowAdd(false);
+      onRefresh();
+    } catch (e) { alert("Forge failed"); }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!window.confirm("Delete package?")) return;
+    try {
+      await axios.delete(`${BASE_URL}/gem-packages/${id}`);
+      onRefresh();
+    } catch (e) { alert("Deletion failed"); }
+  }
+
+  const toggleActive = async (pkg: any) => {
+    try {
+      await axios.patch(`${BASE_URL}/gem-packages/${pkg.id}`, { is_active: !pkg.is_active });
+      onRefresh();
+    } catch (e) { alert("Update failed"); }
+  }
+
+  if (loading) return <div className="h-full flex items-center justify-center text-premium-muted font-bold tracking-widest uppercase italic animate-pulse">STOCKING VAULT...</div>;
+
+  return (
+    <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-700">
+      <div className="flex justify-between items-end">
+        <div>
+          <h1 className="text-4xl font-black text-white tracking-tighter uppercase italic">Gem Supply Chain</h1>
+          <p className="text-premium-muted font-medium mt-2">Manage currency packages and platform monetization</p>
+        </div>
+        <button
+          onClick={() => setShowAdd(true)}
+          className="px-8 py-3 premium-gradient text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:scale-105 transition-all shadow-xl shadow-premium-accent/40 flex items-center space-x-2"
+        >
+          <Plus size={18} />
+          <span>New Gem Pack</span>
+        </button>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {packages.map((pkg) => (
+          <div key={pkg.id} className={`glass-card p-6 flex flex-col group hover:border-premium-accent/30 transition-all duration-500 overflow-hidden relative ${!pkg.is_active ? 'opacity-50 grayscale' : ''}`}>
+            <div className="absolute -right-6 -bottom-6 opacity-5 group-hover:opacity-10 transition-opacity">
+              <Diamond size={160} />
+            </div>
+            <div className="flex justify-between items-start mb-4">
+              <div className="p-3 bg-premium-secondary/10 border border-premium-secondary/20 rounded-2xl text-premium-secondary">
+                <Diamond size={24} />
+              </div>
+              <div className="flex space-x-2">
+                <button
+                  onClick={() => toggleActive(pkg)}
+                  className={`p-2 rounded-lg border border-white/5 ${pkg.is_active ? 'text-emerald-400 bg-emerald-400/5' : 'text-orange-400 bg-orange-400/5'}`}
+                  title={pkg.is_active ? "Deactivate" : "Activate"}
+                >
+                  <Zap size={16} />
+                </button>
+                <button
+                  onClick={() => handleDelete(pkg.id)}
+                  className="p-2 text-premium-muted hover:text-premium-accent transition-colors"
+                >
+                  <Trash2 size={18} />
+                </button>
+              </div>
+            </div>
+            <h3 className="text-xl font-black text-white tracking-tight uppercase group-hover:text-premium-accent transition-colors">{pkg.name}</h3>
+            <div className="mt-2 flex items-center space-x-2">
+              <span className="text-2xl font-black text-white">{pkg.gems_amount}</span>
+              <span className="text-xs font-bold text-premium-muted">GEMS</span>
+              {pkg.bonus_gems > 0 && (
+                <span className="text-[10px] font-black bg-emerald-400/10 text-emerald-400 px-2 py-0.5 rounded border border-emerald-400/20">+{pkg.bonus_gems} BONUS</span>
+              )}
+            </div>
+
+            <div className="mt-6 flex items-center justify-between border-t border-white/5 pt-4">
+              <div className="flex flex-col">
+                <span className="text-[10px] font-black text-premium-muted uppercase tracking-widest">Price Unit</span>
+                <span className="text-lg font-black text-white">{pkg.currency} {pkg.price}</span>
+              </div>
+              {pkg.is_popular && (
+                <div className="px-3 py-1 bg-premium-accent/10 rounded-lg border border-premium-accent/20 text-[10px] font-black uppercase tracking-widest text-premium-accent">
+                    BEST VALUE
+                </div>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {showAdd && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-6 backdrop-blur-xl bg-premium-dark/80">
+          <div className="glass-card w-full max-w-xl p-10 space-y-8 animate-in zoom-in-95 duration-300 relative border-premium-accent/20">
+            <button onClick={() => setShowAdd(false)} className="absolute right-6 top-6 text-premium-muted hover:text-white"><X /></button>
+            <div>
+              <h2 className="text-3xl font-black text-white tracking-tighter uppercase italic">Configure Vault</h2>
+              <p className="text-premium-muted font-medium mt-1">Design a new monetization package</p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+               <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-[0.2em] text-premium-accent">Package ID</label>
+                <input
+                  type="text"
+                  value={newPkg.id}
+                  onChange={e => setNewPkg({ ...newPkg, id: e.target.value })}
+                  className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-white focus:outline-none focus:border-premium-accent/50"
+                  placeholder="e.g. mega_pack_sar"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-[0.2em] text-premium-accent">Display Name</label>
+                <input
+                  type="text"
+                  value={newPkg.name}
+                  onChange={e => setNewPkg({ ...newPkg, name: e.target.value })}
+                  className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-white focus:outline-none focus:border-premium-accent/50"
+                  placeholder="e.g. Super Saver"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-[0.2em] text-premium-accent">Base Gems</label>
+                <input
+                  type="number"
+                  value={newPkg.gems_amount}
+                  onChange={e => setNewPkg({ ...newPkg, gems_amount: parseInt(e.target.value) || 0 })}
+                  className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-white focus:outline-none focus:border-premium-accent/50"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-[0.2em] text-premium-accent">Bonus Gems</label>
+                <input
+                  type="number"
+                  value={newPkg.bonus_gems}
+                  onChange={e => setNewPkg({ ...newPkg, bonus_gems: parseInt(e.target.value) || 0 })}
+                  className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-white focus:outline-none focus:border-premium-accent/50"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-[0.2em] text-premium-accent">Price</label>
+                <input
+                  type="number"
+                  value={newPkg.price}
+                  onChange={e => setNewPkg({ ...newPkg, price: parseFloat(e.target.value) || 0 })}
+                  className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-white focus:outline-none focus:border-premium-accent/50"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-[0.2em] text-premium-accent">Currency</label>
+                <select
+                  value={newPkg.currency}
+                  onChange={e => setNewPkg({ ...newPkg, currency: e.target.value })}
+                  className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-white focus:outline-none focus:border-premium-accent/50 appearance-none bg-premium-card"
+                >
+                  <option value="SAR">SAR</option>
+                  <option value="USD">USD</option>
+                  <option value="INR">INR</option>
+                </select>
+              </div>
+              <div className="col-span-2 flex items-center space-x-6 p-4 bg-white/5 rounded-xl border border-white/10">
+                 <label className="flex items-center space-x-2 cursor-pointer group">
+                   <input 
+                    type="checkbox" 
+                    checked={newPkg.is_popular}
+                    onChange={e => setNewPkg({ ...newPkg, is_popular: e.target.checked })}
+                    className="w-4 h-4 rounded border-white/10 bg-white/5 text-premium-accent focus:ring-premium-accent"
+                   />
+                   <span className="text-xs font-bold text-premium-muted group-hover:text-white transition-colors uppercase tracking-widest">Mark as Popular</span>
+                 </label>
+                 <label className="flex items-center space-x-2 cursor-pointer group">
+                   <input 
+                    type="checkbox" 
+                    checked={newPkg.is_active}
+                    onChange={e => setNewPkg({ ...newPkg, is_active: e.target.checked })}
+                    className="w-4 h-4 rounded border-white/10 bg-white/5 text-premium-accent focus:ring-premium-accent"
+                   />
+                   <span className="text-xs font-bold text-premium-muted group-hover:text-white transition-colors uppercase tracking-widest">Available Induce</span>
+                 </label>
+              </div>
+            </div>
+
+            <button onClick={handleCreate} className="w-full premium-gradient p-5 rounded-2xl font-black uppercase tracking-[0.3em] text-white shadow-2xl shadow-premium-accent/50">Authorize Package</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 const handleToggleBan = async (userId: number, isBanned: boolean) => {
   if (!window.confirm(`Are you sure you want to ${isBanned ? 'unban' : 'ban'} this user?`)) return;

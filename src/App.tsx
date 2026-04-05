@@ -13,11 +13,12 @@ import {
   Diamond,
   Zap,
   RefreshCw,
+  RefreshCcw,
   X
 } from 'lucide-react';
 import axios from 'axios';
 
-const BASE_URL = 'http://localhost:3005/api/admin';
+const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3005/api/admin';
 
 interface Stats {
   totalUsers: number;
@@ -37,6 +38,7 @@ function App() {
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
   const [achievements, setAchievements] = useState<any[]>([]);
   const [gemPackages, setGemPackages] = useState<any[]>([]);
+  const [purchases, setPurchases] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -66,6 +68,9 @@ function App() {
 
       // Fetch Gem Packages
       axios.get(`${BASE_URL}/gem-packages`).then(res => setGemPackages(res.data.packages || [])).catch(e => console.error("Gems fail:", e));
+
+      // Fetch Purchases
+      axios.get(`${BASE_URL}/purchases`).then(res => setPurchases(res.data.purchases || [])).catch(e => console.error("Purchases fail:", e));
 
       setError(null);
     } catch (error) {
@@ -144,6 +149,12 @@ function App() {
             active={activeTab === 'logs'}
             onClick={() => setActiveTab('logs')}
           />
+          <SidebarLink
+            icon={<DollarSign size={20} />}
+            label="Transactions"
+            active={activeTab === 'purchases'}
+            onClick={() => setActiveTab('purchases')}
+          />
         </nav>
 
         <div className="mt-auto p-4 glass-card bg-premium-accent/5 border-premium-accent/10">
@@ -214,6 +225,7 @@ function App() {
           {!error && activeTab === 'gemstore' && <GemStoreManager packages={gemPackages} loading={loading} onRefresh={fetchData} />}
           {!error && activeTab === 'games' && <LiveGames rooms={liveGames} loading={loading} />}
           {!error && activeTab === 'logs' && <AuditLogs logs={auditLogs} loading={loading} />}
+          {!error && activeTab === 'purchases' && <PurchaseList purchases={purchases} loading={loading} />}
           {!error && activeTab === 'broadcast' && <Broadcaster />}
         </div>
       </main>
@@ -451,6 +463,25 @@ const handleUpdateBalance = async (userId: number) => {
     await axios.post(`${BASE_URL}/users/update-balance`, { userId, gems: parseInt(val) });
     return true;
   } catch (e) { alert("Balance update failed"); return false; }
+};
+
+const handleDeletePurchase = async (purchaseId: string) => {
+  if (!window.confirm("Delete this transaction record? This cannot be undone.")) return;
+  try {
+    await axios.delete(`${BASE_URL}/purchases/${purchaseId}`);
+    return true;
+  } catch (e) { alert("Deletion failed"); return false; }
+};
+
+const handleVerifyPurchase = async (purchaseId: string) => {
+  try {
+    const res = await axios.post(`${BASE_URL}/verify-purchase/${purchaseId}`);
+    alert(res.data.msg);
+    return true;
+  } catch (e: any) { 
+    alert(e.response?.data?.msg || "Verification failed"); 
+    return false; 
+  }
 };
 
 // --- Custom Components ---
@@ -1077,6 +1108,97 @@ function Broadcaster() {
             </tbody>
           </table>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function PurchaseList({ purchases, loading }: { purchases: any[], loading: boolean }) {
+  if (loading) return <div className="h-full flex items-center justify-center text-premium-muted font-bold tracking-widest uppercase animate-pulse">Retrieving Financial Logs...</div>;
+  return (
+    <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-700">
+      <div>
+        <h1 className="text-4xl font-black text-white tracking-tighter uppercase italic">Gem Transactions</h1>
+        <p className="text-premium-muted font-medium mt-2">Historical and real-time ledger of all gem purchases</p>
+      </div>
+
+      <div className="glass-card overflow-hidden">
+        <table className="w-full text-left">
+          <thead>
+            <tr className="bg-white/5 border-b border-white/5">
+              <th className="px-8 py-5 text-premium-muted font-black uppercase tracking-widest text-[10px]">Reference</th>
+              <th className="px-8 py-5 text-premium-muted font-black uppercase tracking-widest text-[10px]">User (Commander)</th>
+              <th className="px-8 py-5 text-premium-muted font-black uppercase tracking-widest text-[10px]">Volume (Gems)</th>
+              <th className="px-8 py-5 text-premium-muted font-black uppercase tracking-widest text-[10px]">Investment</th>
+              <th className="px-8 py-5 text-premium-muted font-black uppercase tracking-widest text-[10px]">Protocol Status</th>
+              <th className="px-8 py-5 text-premium-muted font-black uppercase tracking-widest text-[10px]">Timestamp</th>
+              <th className="px-8 py-5 text-premium-muted font-black uppercase tracking-widest text-[10px] text-right">Action</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-white/5">
+            {purchases.map((purchase) => (
+              <tr key={purchase.id} className="hover:bg-white/[0.02] transition-colors group">
+                <td className="px-8 py-6">
+                  <div className="flex flex-col">
+                    <span className="text-white font-mono text-xs font-bold truncate w-32" title={purchase.id}>{purchase.id}</span>
+                    <span className="text-[10px] text-premium-muted uppercase font-black mt-1">Invoice: {purchase.invoice_id || 'N/A'}</span>
+                  </div>
+                </td>
+                <td className="px-8 py-6">
+                  <span className="text-slate-300 font-bold">UID: {purchase.user_id}</span>
+                </td>
+                <td className="px-8 py-6">
+                   <div className="flex items-center space-x-2 text-premium-secondary font-black">
+                    <Diamond size={14} />
+                    <span>{purchase.gems_amount.toLocaleString()}</span>
+                  </div>
+                </td>
+                <td className="px-8 py-6">
+                  <span className="text-emerald-400 font-black font-mono">{purchase.currency} {purchase.price}</span>
+                </td>
+                <td className="px-8 py-6">
+                  <span className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border ${
+                    purchase.status === 'completed' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' :
+                    purchase.status === 'pending' ? 'bg-orange-500/10 text-orange-500 border-orange-500/20' :
+                    'bg-premium-accent/10 text-premium-accent border-premium-accent/20'
+                  }`}>
+                    {purchase.status}
+                  </span>
+                </td>
+                <td className="px-8 py-6">
+                   <span className="text-premium-muted text-[10px] font-black uppercase tracking-tighter">
+                    {new Date(purchase.created_at).toLocaleString()}
+                  </span>
+                </td>
+                <td className="px-8 py-6 text-right">
+                   <div className="flex items-center justify-end space-x-2">
+                     {purchase.status === 'pending' && (
+                       <button 
+                        onClick={async () => (await handleVerifyPurchase(purchase.id)) && window.location.reload()}
+                        className="p-2 text-premium-secondary hover:text-white transition-colors"
+                        title="Force Verify Status"
+                       >
+                         <RefreshCcw size={16} />
+                       </button>
+                     )}
+                     <button 
+                      onClick={async () => (await handleDeletePurchase(purchase.id)) && window.location.reload()}
+                      className="p-2 text-premium-muted hover:text-premium-accent transition-colors"
+                      title="Delete Transaction"
+                     >
+                       <Trash2 size={18} />
+                     </button>
+                   </div>
+                </td>
+              </tr>
+            ))}
+            {purchases.length === 0 && (
+              <tr>
+                <td colSpan={6} className="p-20 text-center text-premium-muted font-bold uppercase tracking-[0.3em] italic">No transactions detected in the logs</td>
+              </tr>
+            )}
+          </tbody>
+        </table>
       </div>
     </div>
   );

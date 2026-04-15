@@ -18,7 +18,10 @@ import {
 } from 'lucide-react';
 import axios from 'axios';
 
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3005/api/admin';
+const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://104.207.65.118:3005/api/admin';
+const ADMIN_SESSION_KEY = 'ludo_admin_authenticated';
+const ADMIN_USERNAME = import.meta.env.VITE_ADMIN_USERNAME || 'admin';
+const ADMIN_PASSWORD = import.meta.env.VITE_ADMIN_PASSWORD || 'admin123';
 
 interface Stats {
   totalUsers: number;
@@ -31,6 +34,10 @@ interface Stats {
 }
 
 function App() {
+  const [isAuthenticated, setIsAuthenticated] = useState(() => localStorage.getItem(ADMIN_SESSION_KEY) === 'true');
+  const [loginUsername, setLoginUsername] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
+  const [loginError, setLoginError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [stats, setStats] = useState<Stats | null>(null);
   const [users, setUsers] = useState<any[]>([]);
@@ -81,6 +88,75 @@ function App() {
       setTimeout(() => setLoading(false), 800);
     }
   };
+
+  const handleLogin = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (loginUsername === ADMIN_USERNAME && loginPassword === ADMIN_PASSWORD) {
+      localStorage.setItem(ADMIN_SESSION_KEY, 'true');
+      setIsAuthenticated(true);
+      setLoginError(null);
+      setLoginPassword('');
+      return;
+    }
+
+    setLoginError('Invalid admin credentials.');
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem(ADMIN_SESSION_KEY);
+    setIsAuthenticated(false);
+    setLoginUsername('');
+    setLoginPassword('');
+  };
+
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-premium-dark text-premium-text flex items-center justify-center p-6">
+        <div className="w-full max-w-md glass-card p-10 space-y-8 border border-white/10">
+          <div className="text-center space-y-2">
+            <h1 className="text-3xl font-black text-white tracking-tight uppercase italic">Admin Login</h1>
+            <p className="text-premium-muted text-sm">Enter credentials to access the command center.</p>
+          </div>
+
+          <form onSubmit={handleLogin} className="space-y-5">
+            <div className="space-y-2">
+              <label className="text-[10px] font-black uppercase tracking-[0.2em] text-premium-accent">Username</label>
+              <input
+                type="text"
+                value={loginUsername}
+                onChange={(e) => setLoginUsername(e.target.value)}
+                className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-white focus:outline-none focus:border-premium-accent/50"
+                placeholder="Enter admin username"
+                autoComplete="username"
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-[10px] font-black uppercase tracking-[0.2em] text-premium-accent">Password</label>
+              <input
+                type="password"
+                value={loginPassword}
+                onChange={(e) => setLoginPassword(e.target.value)}
+                className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-white focus:outline-none focus:border-premium-accent/50"
+                placeholder="Enter admin password"
+                autoComplete="current-password"
+                required
+              />
+            </div>
+
+            {loginError && <p className="text-sm font-bold text-premium-accent">{loginError}</p>}
+
+            <button
+              type="submit"
+              className="w-full premium-gradient p-4 rounded-2xl font-black uppercase tracking-[0.3em] text-white shadow-xl shadow-premium-accent/40"
+            >
+              Access Dashboard
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen bg-premium-dark text-premium-text overflow-hidden font-sans">
@@ -197,6 +273,12 @@ function App() {
               <div className="h-10 w-10 rounded-xl premium-gradient flex items-center justify-center font-black text-white shadow-lg shadow-premium-accent/20">
                 AD
               </div>
+              <button
+                onClick={handleLogout}
+                className="px-3 py-2 text-[10px] font-black uppercase tracking-widest bg-premium-accent/10 border border-premium-accent/30 text-premium-accent rounded-xl hover:bg-premium-accent/20 transition-all"
+              >
+                Logout
+              </button>
             </div>
           </div>
         </header>

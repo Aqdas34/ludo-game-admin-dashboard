@@ -19,9 +19,7 @@ import {
 import axios from 'axios';
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://104.207.65.118:3005/api/admin';
-const ADMIN_SESSION_KEY = 'ludo_admin_authenticated';
-const ADMIN_USERNAME = import.meta.env.VITE_ADMIN_USERNAME || 'admin';
-const ADMIN_PASSWORD = import.meta.env.VITE_ADMIN_PASSWORD || 'admin123';
+const ADMIN_TOKEN_KEY = 'ludo_admin_token';
 
 interface Stats {
   totalUsers: number;
@@ -34,10 +32,11 @@ interface Stats {
 }
 
 function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState(() => localStorage.getItem(ADMIN_SESSION_KEY) === 'true');
+  const [isAuthenticated, setIsAuthenticated] = useState(() => !!localStorage.getItem(ADMIN_TOKEN_KEY));
   const [loginUsername, setLoginUsername] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
   const [loginError, setLoginError] = useState<string | null>(null);
+  const [authLoading, setAuthLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [stats, setStats] = useState<Stats | null>(null);
   const [users, setUsers] = useState<any[]>([]);
@@ -50,63 +49,104 @@ function App() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    const token = localStorage.getItem(ADMIN_TOKEN_KEY);
+    if (token) {
+      axios.defaults.headers.common.Authorization = `Bearer ${token}`;
+    } else {
+      delete axios.defaults.headers.common.Authorization;
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setLoading(false);
+      return;
+    }
     fetchData();
     const interval = setInterval(fetchData, 30000); // 30s auto-refresh
     return () => clearInterval(interval);
-  }, []);
+  }, [isAuthenticated]);
 
   const fetchData = async () => {
     setLoading(true);
     try {
-      // Fetch Stats
-      axios.get(`${BASE_URL}/stats`).then(res => setStats(res.data.stats)).catch(e => console.error("Stats fail:", e));
-      
-      // Fetch Users
-      axios.get(`${BASE_URL}/users`).then(res => setUsers(res.data.users)).catch(e => console.error("Users fail:", e));
-      
-      // Fetch Live Games
-      axios.get(`${BASE_URL}/games/live`).then(res => setLiveGames(res.data.rooms)).catch(e => console.error("Games fail:", e));
-      
-      // Fetch Audit Logs
-      axios.get(`${BASE_URL}/audit-logs`).then(res => setAuditLogs(res.data.logs)).catch(e => console.error("Logs fail:", e));
-      
-      // Fetch Achievements
-      axios.get(`${BASE_URL}/achievements`).then(res => setAchievements(res.data.achievements || [])).catch(e => console.error("Achv fail:", e));
+      const [
+        statsRes,
+        usersRes,
+        gamesRes,
+        logsRes,
+        achievementsRes,
+        packagesRes,
+        purchasesRes
+      ] = await Promise.all([
+        axios.get(`${BASE_URL}/stats`),
+        axios.get(`${BASE_URL}/users`),
+        axios.get(`${BASE_URL}/games/live`),
+        axios.get(`${BASE_URL}/audit-logs`),
+        axios.get(`${BASE_URL}/achievements`),
+        axios.get(`${BASE_URL}/gem-packages`),
+        axios.get(`${BASE_URL}/purchases`)
+      ]);
 
-      // Fetch Gem Packages
-      axios.get(`${BASE_URL}/gem-packages`).then(res => setGemPackages(res.data.packages || [])).catch(e => console.error("Gems fail:", e));
-
-      // Fetch Purchases
-      axios.get(`${BASE_URL}/purchases`).then(res => setPurchases(res.data.purchases || [])).catch(e => console.error("Purchases fail:", e));
+      setStats(statsRes.data.stats);
+      setUsers(usersRes.data.users);
+      setLiveGames(gamesRes.data.rooms);
+      setAuditLogs(logsRes.data.logs);
+      setAchievements(achievementsRes.data.achievements || []);
+      setGemPackages(packagesRes.data.packages || []);
+      setPurchases(purchasesRes.data.purchases || []);
 
       setError(null);
     } catch (error) {
-      console.error("Global fetch error:", error);
-      setError("COMMUNICATION BREACH: Backend Unreachable.");
+      if (axios.isAxiosError(error) && error.response?.status === 401) {
+        handleLogout();
+        setLoginError('Session expired. Please login again.');
+      } else {
+        console.error("Global fetch error:", error);
+        setError("COMMUNICATION BREACH: Backend Unreachable.");
+      }
     } finally {
       // Set loading to false after a short delay to allow parallel promises to start resolving
       setTimeout(() => setLoading(false), 800);
     }
   };
 
-  const handleLogin = (event: React.FormEvent<HTMLFormElement>) => {
+  const handleLogin = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (loginUsername === ADMIN_USERNAME && loginPassword === ADMIN_PASSWORD) {
-      localStorage.setItem(ADMIN_SESSION_KEY, 'true');
+    setAuthLoading(true);
+    try {
+      const response = await axios.post(`${BASE_URL}/login`, {
+        username: loginUsername,
+        password: loginPassword
+      });
+
+      const token = response.data?.result?.[0]?.token;
+      if (!token) {
+        setLoginError('Login failed. Token not received.');
+        return;
+      }
+
+      localStorage.setItem(ADMIN_TOKEN_KEY, token);
+      axios.defaults.headers.common.Authorization = `Bearer ${token}`;
       setIsAuthenticated(true);
       setLoginError(null);
       setLoginPassword('');
+      setError(null);
       return;
+    } catch (error: any) {
+      setLoginError(error?.response?.data?.msg || 'Invalid admin credentials.');
+    } finally {
+      setAuthLoading(false);
     }
-
-    setLoginError('Invalid admin credentials.');
   };
 
   const handleLogout = () => {
-    localStorage.removeItem(ADMIN_SESSION_KEY);
+    localStorage.removeItem(ADMIN_TOKEN_KEY);
+    delete axios.defaults.headers.common.Authorization;
     setIsAuthenticated(false);
     setLoginUsername('');
     setLoginPassword('');
+    setLoading(false);
   };
 
   if (!isAuthenticated) {
@@ -148,9 +188,10 @@ function App() {
 
             <button
               type="submit"
+              disabled={authLoading}
               className="w-full premium-gradient p-4 rounded-2xl font-black uppercase tracking-[0.3em] text-white shadow-xl shadow-premium-accent/40"
             >
-              Access Dashboard
+              {authLoading ? 'Checking...' : 'Access Dashboard'}
             </button>
           </form>
         </div>

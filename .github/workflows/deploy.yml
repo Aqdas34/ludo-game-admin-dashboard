@@ -25,13 +25,11 @@ jobs:
             REPO_URL=https://github.com/Aqdas34/ludo-game-admin-dashboard.git
             BRANCH=main
             REPO_PAT="${{ secrets.REPO_PAT }}"
-
-            if [ -z "$REPO_PAT" ]; then
-              echo "REPO_PAT secret is missing. Add a GitHub token with repo read access."
-              exit 1
+            if [ -n "$REPO_PAT" ]; then
+              AUTH_REPO_URL="https://x-access-token:${REPO_PAT}@github.com/Aqdas34/ludo-game-admin-dashboard.git"
+            else
+              AUTH_REPO_URL="$REPO_URL"
             fi
-
-            AUTH_REPO_URL="https://x-access-token:${REPO_PAT}@github.com/Aqdas34/ludo-game-admin-dashboard.git"
 
             mkdir -p ~/ludo-game-project
 

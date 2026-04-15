@@ -19,13 +19,41 @@ jobs:
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            mkdir -p ~/ludo-game-project/ludo-game-admin-dashboard
-            cd ~/ludo-game-project/ludo-game-admin-dashboard
+            set -e
 
-            if [ ! -d ".git" ]; then
-              git clone https://github.com/Aqdas34/dream-ludo-admin-dashboard.git .
+            APP_DIR=~/ludo-game-project/ludo-game-admin-dashboard
+            REPO_URL=https://github.com/Aqdas34/ludo-game-admin-dashboard.git
+            BRANCH=main
+            REPO_PAT="${{ secrets.REPO_PAT }}"
+
+            if [ -z "$REPO_PAT" ]; then
+              echo "REPO_PAT secret is missing. Add a GitHub token with repo read access."
+              exit 1
+            fi
+
+            AUTH_REPO_URL="https://x-access-token:${REPO_PAT}@github.com/Aqdas34/ludo-game-admin-dashboard.git"
+
+            mkdir -p ~/ludo-game-project
+
+            # Self-heal deployment folder:
+            # - if valid git repo exists, pull latest
+            # - otherwise recreate folder from fresh clone
+            if [ -d "$APP_DIR/.git" ]; then
+              cd "$APP_DIR"
+              git remote set-url origin "$AUTH_REPO_URL"
+              git pull origin "$BRANCH"
             else
-              git pull origin master
+              rm -rf "$APP_DIR"
+              git clone --branch "$BRANCH" "$AUTH_REPO_URL" "$APP_DIR"
+              cd "$APP_DIR"
+            fi
+
+            # Keep origin clean after pull/clone
+            git remote set-url origin "$REPO_URL"
+
+            if [ ! -f package.json ]; then
+              echo "package.json not found in $APP_DIR. Deployment aborted."
+              exit 1
             fi
 
             printf "%s" "${{ secrets.PROJECT_ENV }}" > .env
@@ -37,5 +65,5 @@ jobs:
             npm run build
 
             pm2 delete ludo-admin-dashboard || true
-            pm2 start "npx vite preview --host 0.0.0.0 --port 3006" --name ludo-admin-dashboard
+            pm2 start "npx vite preview --host 0.0.0.0 --port 3006" --name ludo-admin-dashboard --cwd "$APP_DIR"
             pm2 save

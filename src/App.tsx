@@ -14,6 +14,8 @@ import {
   Zap,
   RefreshCw,
   RefreshCcw,
+  Settings,
+  UserCog,
   X
 } from 'lucide-react';
 import axios from 'axios';
@@ -272,6 +274,12 @@ function App() {
             active={activeTab === 'purchases'}
             onClick={() => setActiveTab('purchases')}
           />
+          <SidebarLink
+            icon={<Settings size={20} />}
+            label="Profile Settings"
+            active={activeTab === 'profile'}
+            onClick={() => setActiveTab('profile')}
+          />
         </nav>
 
         <div className="mt-auto p-4 glass-card bg-premium-accent/5 border-premium-accent/10">
@@ -333,8 +341,8 @@ function App() {
                 <h2 className="text-2xl font-black text-white uppercase italic">{error}</h2>
                 <p className="text-premium-muted font-medium">Verify Backend Core (Port 3005) & Database Status</p>
               </div>
-              <button 
-                onClick={fetchData} 
+              <button
+                onClick={fetchData}
                 className="px-8 py-3 bg-white/5 border border-white/10 rounded-2xl text-premium-accent font-black uppercase tracking-widest hover:bg-premium-accent/10 transition-all"
               >
                 Retry Reconnection
@@ -350,6 +358,7 @@ function App() {
           {!error && activeTab === 'logs' && <AuditLogs logs={auditLogs} loading={loading} />}
           {!error && activeTab === 'purchases' && <PurchaseList purchases={purchases} loading={loading} />}
           {!error && activeTab === 'broadcast' && <Broadcaster />}
+          {!error && activeTab === 'profile' && <AdminProfileSettings />}
         </div>
       </main>
     </div>
@@ -456,7 +465,7 @@ function GemStoreManager({ packages, loading, onRefresh }: { packages: any[], lo
               </div>
               {pkg.is_popular && (
                 <div className="px-3 py-1 bg-premium-accent/10 rounded-lg border border-premium-accent/20 text-[10px] font-black uppercase tracking-widest text-premium-accent">
-                    BEST VALUE
+                  BEST VALUE
                 </div>
               )}
             </div>
@@ -474,7 +483,7 @@ function GemStoreManager({ packages, loading, onRefresh }: { packages: any[], lo
             </div>
 
             <div className="grid grid-cols-2 gap-4">
-               <div className="space-y-2">
+              <div className="space-y-2">
                 <label className="text-[10px] font-black uppercase tracking-[0.2em] text-premium-accent">Package ID</label>
                 <input
                   type="text"
@@ -534,24 +543,24 @@ function GemStoreManager({ packages, loading, onRefresh }: { packages: any[], lo
                 </select>
               </div>
               <div className="col-span-2 flex items-center space-x-6 p-4 bg-white/5 rounded-xl border border-white/10">
-                 <label className="flex items-center space-x-2 cursor-pointer group">
-                   <input 
-                    type="checkbox" 
+                <label className="flex items-center space-x-2 cursor-pointer group">
+                  <input
+                    type="checkbox"
                     checked={newPkg.is_popular}
                     onChange={e => setNewPkg({ ...newPkg, is_popular: e.target.checked })}
                     className="w-4 h-4 rounded border-white/10 bg-white/5 text-premium-accent focus:ring-premium-accent"
-                   />
-                   <span className="text-xs font-bold text-premium-muted group-hover:text-white transition-colors uppercase tracking-widest">Mark as Popular</span>
-                 </label>
-                 <label className="flex items-center space-x-2 cursor-pointer group">
-                   <input 
-                    type="checkbox" 
+                  />
+                  <span className="text-xs font-bold text-premium-muted group-hover:text-white transition-colors uppercase tracking-widest">Mark as Popular</span>
+                </label>
+                <label className="flex items-center space-x-2 cursor-pointer group">
+                  <input
+                    type="checkbox"
                     checked={newPkg.is_active}
                     onChange={e => setNewPkg({ ...newPkg, is_active: e.target.checked })}
                     className="w-4 h-4 rounded border-white/10 bg-white/5 text-premium-accent focus:ring-premium-accent"
-                   />
-                   <span className="text-xs font-bold text-premium-muted group-hover:text-white transition-colors uppercase tracking-widest">Available Induce</span>
-                 </label>
+                  />
+                  <span className="text-xs font-bold text-premium-muted group-hover:text-white transition-colors uppercase tracking-widest">Available Induce</span>
+                </label>
               </div>
             </div>
 
@@ -601,9 +610,9 @@ const handleVerifyPurchase = async (purchaseId: string) => {
     const res = await axios.post(`${BASE_URL}/verify-purchase/${purchaseId}`);
     alert(res.data.msg);
     return true;
-  } catch (e: any) { 
-    alert(e.response?.data?.msg || "Verification failed"); 
-    return false; 
+  } catch (e: any) {
+    alert(e.response?.data?.msg || "Verification failed");
+    return false;
   }
 };
 
@@ -1016,7 +1025,7 @@ function UserRanks({ users, loading }: { users: any[], loading: boolean }) {
   if (loading) return <div className="h-full flex items-center justify-center text-premium-muted font-bold tracking-widest uppercase">Calculating Standings...</div>;
 
   // Derive Ranks (Sorted by Win Balance) - Added Safety Check
-  const rankedUsers = Array.isArray(users) 
+  const rankedUsers = Array.isArray(users)
     ? [...users].sort((a, b) => (b.wonBal || 0) - (a.wonBal || 0))
     : [];
 
@@ -1271,7 +1280,7 @@ function PurchaseList({ purchases, loading }: { purchases: any[], loading: boole
                   <span className="text-slate-300 font-bold">UID: {purchase.user_id}</span>
                 </td>
                 <td className="px-8 py-6">
-                   <div className="flex items-center space-x-2 text-premium-secondary font-black">
+                  <div className="flex items-center space-x-2 text-premium-secondary font-black">
                     <Diamond size={14} />
                     <span>{purchase.gems_amount.toLocaleString()}</span>
                   </div>
@@ -1280,38 +1289,37 @@ function PurchaseList({ purchases, loading }: { purchases: any[], loading: boole
                   <span className="text-emerald-400 font-black font-mono">{purchase.currency} {purchase.price}</span>
                 </td>
                 <td className="px-8 py-6">
-                  <span className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border ${
-                    purchase.status === 'completed' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' :
-                    purchase.status === 'pending' ? 'bg-orange-500/10 text-orange-500 border-orange-500/20' :
-                    'bg-premium-accent/10 text-premium-accent border-premium-accent/20'
-                  }`}>
+                  <span className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border ${purchase.status === 'completed' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' :
+                      purchase.status === 'pending' ? 'bg-orange-500/10 text-orange-500 border-orange-500/20' :
+                        'bg-premium-accent/10 text-premium-accent border-premium-accent/20'
+                    }`}>
                     {purchase.status}
                   </span>
                 </td>
                 <td className="px-8 py-6">
-                   <span className="text-premium-muted text-[10px] font-black uppercase tracking-tighter">
+                  <span className="text-premium-muted text-[10px] font-black uppercase tracking-tighter">
                     {new Date(purchase.created_at).toLocaleString()}
                   </span>
                 </td>
                 <td className="px-8 py-6 text-right">
-                   <div className="flex items-center justify-end space-x-2">
-                     {purchase.status === 'pending' && (
-                       <button 
+                  <div className="flex items-center justify-end space-x-2">
+                    {purchase.status === 'pending' && (
+                      <button
                         onClick={async () => (await handleVerifyPurchase(purchase.id)) && window.location.reload()}
                         className="p-2 text-premium-secondary hover:text-white transition-colors"
                         title="Force Verify Status"
-                       >
-                         <RefreshCcw size={16} />
-                       </button>
-                     )}
-                     <button 
+                      >
+                        <RefreshCcw size={16} />
+                      </button>
+                    )}
+                    <button
                       onClick={async () => (await handleDeletePurchase(purchase.id)) && window.location.reload()}
                       className="p-2 text-premium-muted hover:text-premium-accent transition-colors"
                       title="Delete Transaction"
-                     >
-                       <Trash2 size={18} />
-                     </button>
-                   </div>
+                    >
+                      <Trash2 size={18} />
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
@@ -1322,6 +1330,77 @@ function PurchaseList({ purchases, loading }: { purchases: any[], loading: boole
             )}
           </tbody>
         </table>
+      </div>
+    </div>
+  );
+}
+
+
+function AdminProfileSettings() {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [updating, setUpdating] = useState(false);
+
+  const handleUpdate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email && !password) return alert("Please enter new email or password");
+    setUpdating(true);
+    try {
+      await axios.post(`${BASE_URL}/update-profile`, { email, password });
+      alert("Profile updated successfully!");
+      setEmail('');
+      setPassword('');
+      window.location.reload(); 
+    } catch (e: any) {
+      alert(e.response?.data?.msg || "Update failed");
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  return (
+    <div className="space-y-10 max-w-4xl animate-in slide-in-from-right-4 duration-700">
+      <div>
+        <h1 className="text-4xl font-black text-white tracking-tighter uppercase italic">Profile Settings</h1>
+        <p className="text-premium-muted font-medium mt-2">Manage your administrative identity and access keys</p>
+      </div>
+
+      <div className="glass-card p-10 space-y-8 relative overflow-hidden">
+        <div className="absolute top-0 right-0 p-8 opacity-5">
+          <UserCog size={120} className="animate-pulse" />
+        </div>
+
+        <form onSubmit={handleUpdate} className="space-y-6">
+          <div className="space-y-2">
+            <label className="text-[10px] font-black uppercase tracking-[0.2em] text-premium-accent">New Email Address</label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white font-bold focus:outline-none focus:border-premium-accent/50"
+              placeholder="admin@example.com"
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-[10px] font-black uppercase tracking-[0.2em] text-premium-accent">New Security Password</label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white focus:outline-none focus:border-premium-accent/50"
+              placeholder="••••••••"
+            />
+            <p className="text-[9px] text-premium-muted font-bold uppercase tracking-widest mt-2">Leave blank to keep existing password</p>
+          </div>
+
+          <button
+            type="submit"
+            disabled={updating}
+            className="w-full premium-gradient hover:scale-[1.02] disabled:opacity-50 text-white font-black uppercase tracking-[0.3em] py-5 rounded-2xl transition-all shadow-2xl shadow-premium-accent/40"
+          >
+            {updating ? "AUTHORIZING CHANGES..." : "UPDATE PROFILE SECRETS"}
+          </button>
+        </form>
       </div>
     </div>
   );

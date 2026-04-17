@@ -868,7 +868,7 @@ function DashboardHome({ stats, loading }: { stats: Stats | null, loading: boole
         <StatsCard
           icon={<DollarSign className="text-emerald-400" />}
           label="War Chest"
-          value={`₹${Number(stats?.totalDepositBal || 0).toLocaleString()}`}
+          value={`SAR ${Number(stats?.totalDepositBal || 0).toLocaleString()}`}
           trend="Real Funds"
           colorClass="bg-emerald-400"
         />
@@ -885,15 +885,15 @@ function DashboardHome({ stats, loading }: { stats: Stats | null, loading: boole
         <div className="glass-card p-8 border-l-4 border-premium-accent bg-premium-accent/5">
           <p className="text-premium-muted text-xs font-black uppercase tracking-widest mb-2">Bonus Pool</p>
           <div className="flex items-end space-x-2">
-            <h3 className="text-4xl font-black text-white tracking-tighter">₹{Number(stats?.totalBonusBal || 0).toLocaleString()}</h3>
-            <span className="text-premium-accent font-bold mb-1 text-xs">INR</span>
+            <h3 className="text-4xl font-black text-white tracking-tighter">SAR {Number(stats?.totalBonusBal || 0).toLocaleString()}</h3>
+            <span className="text-premium-accent font-bold mb-1 text-xs">SAR</span>
           </div>
         </div>
         <div className="glass-card p-8 border-l-4 border-premium-secondary bg-premium-secondary/5">
           <p className="text-premium-muted text-xs font-black uppercase tracking-widest mb-2">Winners Purse</p>
           <div className="flex items-end space-x-2">
-            <h3 className="text-4xl font-black text-white tracking-tighter">₹{Number(stats?.totalWonBal || 0).toLocaleString()}</h3>
-            <span className="text-premium-secondary font-bold mb-1 text-xs">INR</span>
+            <h3 className="text-4xl font-black text-white tracking-tighter">SAR {Number(stats?.totalWonBal || 0).toLocaleString()}</h3>
+            <span className="text-premium-secondary font-bold mb-1 text-xs">SAR</span>
           </div>
         </div>
         <div className="glass-card p-8 border-l-4 border-emerald-500 bg-emerald-500/5">
@@ -926,6 +926,7 @@ function UserList({ users, loading, onRefresh }: { users: any[], loading: boolea
           <thead>
             <tr className="bg-white/5 border-b border-white/5">
               <th className="px-8 py-5 text-premium-muted font-black uppercase tracking-widest text-[10px]">Commandant</th>
+              <th className="px-8 py-5 text-premium-muted font-black uppercase tracking-widest text-[10px]">Status</th>
               <th className="px-8 py-5 text-premium-muted font-black uppercase tracking-widest text-[10px]">Access Key</th>
               <th className="px-8 py-5 text-premium-muted font-black uppercase tracking-widest text-[10px]">Armory (Gems)</th>
               <th className="px-8 py-5 text-premium-muted font-black uppercase tracking-widest text-[10px]">Spoils (Won)</th>
@@ -937,14 +938,24 @@ function UserList({ users, loading, onRefresh }: { users: any[], loading: boolea
               <tr key={user.id} className="hover:bg-white/[0.02] transition-colors group">
                 <td className="px-8 py-6">
                   <div className="flex items-center space-x-4">
-                    <div className="h-12 w-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-premium-accent font-black text-lg group-hover:scale-110 transition-transform shadow-inner">
+                    <div className="h-12 w-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-premium-accent font-black text-lg group-hover:scale-110 transition-transform shadow-inner relative">
                       {user.fullName?.[0] || 'U'}
+                      {user.isVerified && (
+                         <div className="absolute -top-1 -right-1 w-4 h-4 bg-emerald-500 rounded-full border-2 border-premium-card flex items-center justify-center">
+                            <div className="w-1.5 h-1.5 bg-white rounded-full" />
+                         </div>
+                      )}
                     </div>
                     <div>
                       <div className="font-black text-white text-base tracking-tight">{user.fullName || 'No Name'}</div>
                       <div className="text-xs text-premium-muted font-medium">{user.email}</div>
                     </div>
                   </div>
+                </td>
+                <td className="px-8 py-6">
+                   <span className={`px-2 py-1 rounded text-[9px] font-black uppercase tracking-widest border ${user.isVerified ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' : 'bg-white/5 text-premium-muted border-white/10'}`}>
+                      {user.isVerified ? 'Verified' : 'Unverified'}
+                   </span>
                 </td>
                 <td className="px-8 py-6">
                   <div className="flex items-center space-x-2">
@@ -961,7 +972,7 @@ function UserList({ users, loading, onRefresh }: { users: any[], loading: boolea
                   </div>
                 </td>
                 <td className="px-8 py-6 text-emerald-400 font-bold font-mono">
-                  ₹{Number(user.wonBal).toLocaleString()}
+                  SAR {Number(user.wonBal).toLocaleString()}
                 </td>
                 <td className="px-8 py-6">
                   <div className="flex justify-end space-x-3">
@@ -1241,7 +1252,7 @@ function UserRanks({ users, loading }: { users: any[], loading: boolean }) {
                   </div>
                 </td>
                 <td className="px-8 py-6 text-emerald-400 font-black font-mono text-xl">
-                  ₹{Number(user.wonBal).toLocaleString()}
+                  SAR {Number(user.wonBal).toLocaleString()}
                 </td>
                 <td className="px-8 py-6">
                   <div className={user.isBanned ? 'text-premium-accent font-black uppercase text-[10px]' : 'text-emerald-500 font-bold uppercase text-[10px]'}>

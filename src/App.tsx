@@ -39,6 +39,15 @@ function App() {
   const [loginPassword, setLoginPassword] = useState('');
   const [loginError, setLoginError] = useState<string | null>(null);
   const [authLoading, setAuthLoading] = useState(false);
+
+  // Recovery States
+  const [authView, setAuthView] = useState<'login' | 'forgot-password' | 'verify-otp' | 'new-password'>('login');
+  const [recoveryEmail, setRecoveryEmail] = useState('');
+  const [recoveryOTP, setRecoveryOTP] = useState('');
+  const [newAuthPassword, setNewAuthPassword] = useState('');
+  const [recoveryMessage, setRecoveryMessage] = useState<string | null>(null);
+  const [recoveryError, setRecoveryError] = useState<string | null>(null);
+
   const [activeTab, setActiveTab] = useState('dashboard');
   const [stats, setStats] = useState<Stats | null>(null);
   const [users, setUsers] = useState<any[]>([]);
@@ -149,53 +158,225 @@ function App() {
     setLoginUsername('');
     setLoginPassword('');
     setLoading(false);
+    setAuthView('login');
+  };
+
+  const handleRequestOTP = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthLoading(true);
+    setRecoveryError(null);
+    try {
+      const resp = await axios.post(`${BASE_URL}/forgot-password`, { email: recoveryEmail });
+      if (resp.data.success) {
+        setRecoveryMessage(resp.data.msg);
+        setAuthView('verify-otp');
+      } else {
+        setRecoveryError(resp.data.msg);
+      }
+    } catch (err: any) {
+      setRecoveryError(err.response?.data?.msg || "Failed to send security code.");
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handleVerifyOTP = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthLoading(true);
+    setRecoveryError(null);
+    try {
+      const resp = await axios.post(`${BASE_URL}/verify-otp`, { email: recoveryEmail, otp: recoveryOTP });
+      if (resp.data.success) {
+        setAuthView('new-password');
+      } else {
+        setRecoveryError(resp.data.msg);
+      }
+    } catch (err: any) {
+      setRecoveryError(err.response?.data?.msg || "Invalid security code.");
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handleFinalReset = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthLoading(true);
+    setRecoveryError(null);
+    try {
+      const resp = await axios.post(`${BASE_URL}/reset-password`, { 
+        email: recoveryEmail, 
+        otp: recoveryOTP, 
+        password: newAuthPassword 
+      });
+      if (resp.data.success) {
+        alert("Password reset successful! Please login with your new password.");
+        setAuthView('login');
+        setRecoveryEmail('');
+        setRecoveryOTP('');
+        setNewAuthPassword('');
+      } else {
+        setRecoveryError(resp.data.msg);
+      }
+    } catch (err: any) {
+      setRecoveryError(err.response?.data?.msg || "Failed to reset password.");
+    } finally {
+      setAuthLoading(false);
+    }
   };
 
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-premium-dark text-premium-text flex items-center justify-center p-6">
-        <div className="w-full max-w-md glass-card p-10 space-y-8 border border-white/10">
+        <div className="w-full max-w-md glass-card p-10 space-y-8 border border-white/10 animate-in fade-in zoom-in duration-500">
           <div className="text-center space-y-2">
-            <h1 className="text-3xl font-black text-white tracking-tight uppercase italic">Admin Login</h1>
-            <p className="text-premium-muted text-sm">Enter credentials to access the command center.</p>
+            <h1 className="text-3xl font-black text-white tracking-tight uppercase italic">
+              {authView === 'login' ? 'Admin Login' : 'Security Recovery'}
+            </h1>
+            <p className="text-premium-muted text-sm">
+              {authView === 'login' && 'Enter credentials to access the command center.'}
+              {authView === 'forgot-password' && 'Enter your admin email to receive a security code.'}
+              {authView === 'verify-otp' && 'Enter the 6-digit code sent to your email.'}
+              {authView === 'new-password' && 'Set a new strong password for your account.'}
+            </p>
           </div>
 
-          <form onSubmit={handleLogin} className="space-y-5">
-            <div className="space-y-2">
-              <label className="text-[10px] font-black uppercase tracking-[0.2em] text-premium-accent">Username</label>
-              <input
-                type="text"
-                value={loginUsername}
-                onChange={(e) => setLoginUsername(e.target.value)}
-                className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-white focus:outline-none focus:border-premium-accent/50"
-                placeholder="Enter admin username"
-                autoComplete="username"
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-[10px] font-black uppercase tracking-[0.2em] text-premium-accent">Password</label>
-              <input
-                type="password"
-                value={loginPassword}
-                onChange={(e) => setLoginPassword(e.target.value)}
-                className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-white focus:outline-none focus:border-premium-accent/50"
-                placeholder="Enter admin password"
-                autoComplete="current-password"
-                required
-              />
-            </div>
+          {authView === 'login' && (
+            <form onSubmit={handleLogin} className="space-y-5">
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-[0.2em] text-premium-accent">Username</label>
+                <input
+                  type="text"
+                  value={loginUsername}
+                  onChange={(e) => setLoginUsername(e.target.value)}
+                  className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-white focus:outline-none focus:border-premium-accent/50"
+                  placeholder="Enter admin username"
+                  autoComplete="username"
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <label className="text-[10px] font-black uppercase tracking-[0.2em] text-premium-accent">Password</label>
+                  <button 
+                    type="button"
+                    onClick={() => { setAuthView('forgot-password'); setLoginError(null); }}
+                    className="text-[10px] font-bold uppercase tracking-widest text-premium-muted hover:text-white transition-colors"
+                  >
+                    Forgot?
+                  </button>
+                </div>
+                <input
+                  type="password"
+                  value={loginPassword}
+                  onChange={(e) => setLoginPassword(e.target.value)}
+                  className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-white focus:outline-none focus:border-premium-accent/50"
+                  placeholder="Enter admin password"
+                  autoComplete="current-password"
+                  required
+                />
+              </div>
 
-            {loginError && <p className="text-sm font-bold text-premium-accent">{loginError}</p>}
+              {loginError && <p className="text-sm font-bold text-premium-accent">{loginError}</p>}
 
-            <button
-              type="submit"
-              disabled={authLoading}
-              className="w-full premium-gradient p-4 rounded-2xl font-black uppercase tracking-[0.3em] text-white shadow-xl shadow-premium-accent/40"
-            >
-              {authLoading ? 'Checking...' : 'Access Dashboard'}
-            </button>
-          </form>
+              <button
+                type="submit"
+                disabled={authLoading}
+                className="w-full premium-gradient p-4 rounded-2xl font-black uppercase tracking-[0.3em] text-white shadow-xl shadow-premium-accent/40 hover:scale-[1.02] active:scale-[0.98] transition-all"
+              >
+                {authLoading ? 'Authorizing...' : 'Access Dashboard'}
+              </button>
+            </form>
+          )}
+
+          {authView === 'forgot-password' && (
+            <form onSubmit={handleRequestOTP} className="space-y-5">
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-[0.2em] text-premium-accent">Admin Email</label>
+                <input
+                  type="email"
+                  value={recoveryEmail}
+                  onChange={(e) => setRecoveryEmail(e.target.value)}
+                  className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-white focus:outline-none focus:border-premium-accent/50"
+                  placeholder="name@dreamludo.com"
+                  required
+                />
+              </div>
+              {recoveryError && <p className="text-sm font-bold text-premium-accent">{recoveryError}</p>}
+              <button
+                type="submit"
+                disabled={authLoading}
+                className="w-full premium-gradient p-4 rounded-2xl font-black uppercase tracking-[0.2em] text-white shadow-xl shadow-premium-accent/40"
+              >
+                {authLoading ? 'Sending...' : 'Send Security Code'}
+              </button>
+              <button 
+                type="button"
+                onClick={() => setAuthView('login')}
+                className="w-full text-center text-xs font-bold text-premium-muted hover:text-white transition-colors uppercase tracking-widest"
+              >
+                Back to Login
+              </button>
+            </form>
+          )}
+
+          {authView === 'verify-otp' && (
+            <form onSubmit={handleVerifyOTP} className="space-y-5">
+               <div className="bg-premium-accent/5 border border-premium-accent/20 rounded-xl p-3 text-center">
+                <p className="text-xs text-premium-accent font-medium">{recoveryMessage}</p>
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-[0.2em] text-premium-accent">Verification Code</label>
+                <input
+                  type="text"
+                  value={recoveryOTP}
+                  onChange={(e) => setRecoveryOTP(e.target.value)}
+                  className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-white text-center text-2xl font-black tracking-[0.5em] focus:outline-none focus:border-premium-accent/50"
+                  placeholder="000000"
+                  maxLength={6}
+                  required
+                />
+              </div>
+              {recoveryError && <p className="text-sm font-bold text-premium-accent">{recoveryError}</p>}
+              <button
+                type="submit"
+                disabled={authLoading}
+                className="w-full premium-gradient p-4 rounded-2xl font-black uppercase tracking-[0.2em] text-white shadow-xl shadow-premium-accent/40"
+              >
+                {authLoading ? 'Verifying...' : 'Verify Code'}
+              </button>
+              <button 
+                type="button"
+                onClick={() => setAuthView('forgot-password')}
+                className="w-full text-center text-xs font-bold text-premium-muted hover:text-white transition-colors uppercase tracking-widest"
+              >
+                Resend Code
+              </button>
+            </form>
+          )}
+
+          {authView === 'new-password' && (
+            <form onSubmit={handleFinalReset} className="space-y-5">
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-[0.2em] text-premium-accent">New Password</label>
+                <input
+                  type="password"
+                  value={newAuthPassword}
+                  onChange={(e) => setNewAuthPassword(e.target.value)}
+                  className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-white focus:outline-none focus:border-premium-accent/50"
+                  placeholder="Minimum 8 characters"
+                  required
+                />
+              </div>
+              {recoveryError && <p className="text-sm font-bold text-premium-accent">{recoveryError}</p>}
+              <button
+                type="submit"
+                disabled={authLoading}
+                className="w-full premium-gradient p-4 rounded-2xl font-black uppercase tracking-[0.2em] text-white shadow-xl shadow-premium-accent/40"
+              >
+                {authLoading ? 'Resetting...' : 'Update Password'}
+              </button>
+            </form>
+          )}
         </div>
       </div>
     );

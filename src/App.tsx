@@ -10,6 +10,7 @@ import {
   Trash2,
   Plus,
   ShieldAlert,
+  ShieldCheck,
   Diamond,
   Zap,
   RefreshCw,
@@ -47,6 +48,12 @@ function App() {
   const [newAuthPassword, setNewAuthPassword] = useState('');
   const [recoveryMessage, setRecoveryMessage] = useState<string | null>(null);
   const [recoveryError, setRecoveryError] = useState<string | null>(null);
+  const [notification, setNotification] = useState<{ msg: string, type: 'success' | 'error' } | null>(null);
+
+  const showNotification = (msg: string, type: 'success' | 'error' = 'success') => {
+    setNotification({ msg, type });
+    setTimeout(() => setNotification(null), 4000);
+  };
 
   const [activeTab, setActiveTab] = useState('dashboard');
   const [stats, setStats] = useState<Stats | null>(null);
@@ -216,7 +223,7 @@ function App() {
         password: newAuthPassword 
       });
       if (resp.data.success) {
-        alert("Password reset successful! Please login with your new password.");
+        showNotification("Password reset successful! Please login.");
         setAuthView('login');
         setRecoveryEmail('');
         setRecoveryOTP('');
@@ -538,17 +545,34 @@ function App() {
             </div>
           )}
           {!error && activeTab === 'dashboard' && <DashboardHome stats={stats} loading={loading} />}
-          {!error && activeTab === 'users' && <UserList users={users} loading={loading} onRefresh={() => fetchData(false)} />}
+          {!error && activeTab === 'users' && <UserList users={users} loading={loading} onRefresh={() => fetchData(false)} showNotification={showNotification} />}
           {!error && activeTab === 'ranks' && <UserRanks users={users} loading={loading} />}
-          {!error && activeTab === 'achievements' && <AchievementList achievements={achievements} loading={loading} onRefresh={() => fetchData(false)} />}
-          {!error && activeTab === 'gemstore' && <GemStoreManager packages={gemPackages} loading={loading} onRefresh={() => fetchData(false)} />}
+          {!error && activeTab === 'achievements' && <AchievementList achievements={achievements} loading={loading} onRefresh={() => fetchData(false)} showNotification={showNotification} />}
+          {!error && activeTab === 'gemstore' && <GemStoreManager packages={gemPackages} loading={loading} onRefresh={() => fetchData(false)} showNotification={showNotification} />}
           {!error && activeTab === 'games' && <LiveGames rooms={liveGames} loading={loading} />}
           {!error && activeTab === 'logs' && <AuditLogs logs={auditLogs} loading={loading} />}
           {!error && activeTab === 'purchases' && <PurchaseList purchases={purchases} loading={loading} />}
-          {!error && activeTab === 'broadcast' && <Broadcaster />}
-          {!error && activeTab === 'profile' && <AdminProfileSettings />}
+          {!error && activeTab === 'broadcast' && <Broadcaster showNotification={showNotification} />}
+          {!error && activeTab === 'profile' && <AdminProfileSettings showNotification={showNotification} />}
         </div>
       </main>
+
+      {/* Premium Notification Toast */}
+      {notification && (
+        <div className="fixed bottom-8 right-8 z-[100] animate-in slide-in-from-right-10 duration-500">
+          <div className={`glass-card p-6 border-l-4 flex items-center space-x-4 shadow-2xl min-w-[320px] ${
+            notification.type === 'success' ? 'border-emerald-500 bg-emerald-500/5' : 'border-premium-accent bg-premium-accent/5'
+          }`}>
+            <div className={`p-2 rounded-lg ${notification.type === 'success' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-premium-accent/10 text-premium-accent'}`}>
+              {notification.type === 'success' ? <Zap size={20} /> : <ShieldAlert size={20} />}
+            </div>
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-widest text-premium-muted">System Message</p>
+              <p className="text-white font-bold tracking-tight">{notification.msg}</p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -765,7 +789,7 @@ const handleToggleBan = async (userId: number, isBanned: boolean) => {
   try {
     await axios.post(`${BASE_URL}/users/toggle-ban`, { userId, isBanned: !isBanned });
     return true;
-  } catch (e) { alert("Ban action failed"); return false; }
+  } catch (e) { return false; }
 };
 
 const handleDeleteUser = async (userId: number) => {
@@ -773,7 +797,15 @@ const handleDeleteUser = async (userId: number) => {
   try {
     await axios.delete(`${BASE_URL}/users/${userId}`);
     return true;
-  } catch (e) { alert("User deletion failed"); return false; }
+  } catch (e) { return false; }
+};
+
+const handleToggleAdmin = async (userId: number, isAdmin: boolean) => {
+  if (!window.confirm(`SECURITY CLEARANCE: ${isAdmin ? 'Revoke' : 'Grant'} administrative privileges for this user?`)) return;
+  try {
+    await axios.post(`${BASE_URL}/users/toggle-admin`, { userId, isAdmin: !isAdmin });
+    return true;
+  } catch (e) { return false; }
 };
 
 const handleUpdateBalance = async (userId: number) => {
@@ -782,7 +814,7 @@ const handleUpdateBalance = async (userId: number) => {
   try {
     await axios.post(`${BASE_URL}/users/update-balance`, { userId, gems: parseInt(val) });
     return true;
-  } catch (e) { alert("Balance update failed"); return false; }
+  } catch (e) { return false; }
 };
 
 const handleDeletePurchase = async (purchaseId: string) => {
@@ -790,18 +822,14 @@ const handleDeletePurchase = async (purchaseId: string) => {
   try {
     await axios.delete(`${BASE_URL}/purchases/${purchaseId}`);
     return true;
-  } catch (e) { alert("Deletion failed"); return false; }
+  } catch (e) { return false; }
 };
 
 const handleVerifyPurchase = async (purchaseId: string) => {
   try {
     const res = await axios.post(`${BASE_URL}/verify-purchase/${purchaseId}`);
-    alert(res.data.msg);
-    return true;
-  } catch (e: any) {
-    alert(e.response?.data?.msg || "Verification failed");
-    return false;
-  }
+    return res.data.msg;
+  } catch (e) { return "Verification failed"; }
 };
 
 // --- Custom Components ---
@@ -914,104 +942,225 @@ function DashboardHome({ stats, loading }: { stats: Stats | null, loading: boole
     </div>
   );
 }
-
 function UserList({ users, loading, onRefresh }: { users: any[], loading: boolean, onRefresh: () => void }) {
-  if (loading) return <div className="h-full flex items-center justify-center text-premium-muted font-bold tracking-widest uppercase">Fetching Recruits...</div>;
+  const [selectedUser, setSelectedUser] = useState<any | null>(null);
+
+  if (loading) return <div className="h-full flex items-center justify-center text-premium-muted font-bold tracking-widest uppercase italic">FORGING ARENA...</div>;
 
   return (
-    <div className="space-y-8 animate-in slide-in-from-bottom-4 duration-700">
-      <div className="flex justify-between items-end">
-        <div>
-          <h1 className="text-4xl font-black text-white tracking-tighter uppercase italic">User Arena</h1>
-          <p className="text-premium-muted font-medium mt-2">Manage profiles, ban violators, and adjust resources</p>
+    <>
+      <div className="space-y-8 animate-in slide-in-from-bottom-4 duration-700">
+        <div className="flex justify-between items-end">
+          <div>
+            <h1 className="text-4xl font-black text-white tracking-tighter uppercase italic">User Arena</h1>
+            <p className="text-premium-muted font-medium mt-2">Manage profiles, ban violators, and adjust resources</p>
+          </div>
+          <button onClick={onRefresh} className="px-6 py-2.5 bg-premium-accent text-white rounded-xl font-bold uppercase tracking-widest text-xs hover:scale-105 transition-all shadow-lg shadow-premium-accent/20">Sync Data</button>
         </div>
-        <button onClick={onRefresh} className="px-6 py-2.5 bg-premium-accent text-white rounded-xl font-bold uppercase tracking-widest text-xs hover:scale-105 transition-all shadow-lg shadow-premium-accent/20">Sync Data</button>
+
+        <div className="glass-card overflow-hidden">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="bg-white/5 border-b border-white/5">
+                <th className="px-8 py-5 text-premium-muted font-black uppercase tracking-widest text-[10px]">Commandant</th>
+                <th className="px-8 py-5 text-premium-muted font-black uppercase tracking-widest text-[10px]">Access Key</th>
+                <th className="px-8 py-5 text-premium-muted font-black uppercase tracking-widest text-[10px]">Armory (Gems)</th>
+                <th className="px-8 py-5 text-premium-muted font-black uppercase tracking-widest text-[10px]">Rank</th>
+                <th className="px-8 py-5 text-premium-muted font-black uppercase tracking-widest text-[10px]">Service Entry</th>
+                <th className="px-8 py-5 text-premium-muted font-black uppercase tracking-widest text-[10px] text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-white/5">
+              {users.map((user) => (
+                <UserRow key={user.id} user={user} onRefresh={onRefresh} onOpenDetails={() => setSelectedUser(user)} />
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
 
-      <div className="glass-card overflow-hidden">
-        <table className="w-full text-left border-collapse">
-          <thead>
-            <tr className="bg-white/5 border-b border-white/5">
-              <th className="px-8 py-5 text-premium-muted font-black uppercase tracking-widest text-[10px]">Commandant</th>
-              <th className="px-8 py-5 text-premium-muted font-black uppercase tracking-widest text-[10px]">Status</th>
-              <th className="px-8 py-5 text-premium-muted font-black uppercase tracking-widest text-[10px]">Access Key</th>
-              <th className="px-8 py-5 text-premium-muted font-black uppercase tracking-widest text-[10px]">Armory (Gems)</th>
-              <th className="px-8 py-5 text-premium-muted font-black uppercase tracking-widest text-[10px]">Spoils (Won)</th>
-              <th className="px-8 py-5 text-premium-muted font-black uppercase tracking-widest text-[10px] text-right">Ops</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-white/5">
-            {users.map((user) => (
-              <tr key={user.id} className="hover:bg-white/[0.02] transition-colors group">
-                <td className="px-8 py-6">
-                  <div className="flex items-center space-x-4">
-                    <div className="h-12 w-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-premium-accent font-black text-lg group-hover:scale-110 transition-transform shadow-inner relative">
-                      {user.fullName?.[0] || 'U'}
-                      {user.isVerified && (
-                         <div className="absolute -top-1 -right-1 w-4 h-4 bg-emerald-500 rounded-full border-2 border-premium-card flex items-center justify-center">
-                            <div className="w-1.5 h-1.5 bg-white rounded-full" />
-                         </div>
-                      )}
-                    </div>
-                    <div>
-                      <div className="font-black text-white text-base tracking-tight">{user.fullName || 'No Name'}</div>
-                      <div className="text-xs text-premium-muted font-medium">{user.email}</div>
-                    </div>
+      {selectedUser && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 backdrop-blur-3xl bg-premium-dark/60 animate-in fade-in duration-300">
+          <div className="glass-card w-full max-w-2xl p-10 space-y-10 animate-in zoom-in-95 duration-500 relative border-premium-accent/20 shadow-2xl overflow-hidden">
+            <button 
+              onClick={() => setSelectedUser(null)} 
+              className="absolute right-8 top-8 text-premium-muted hover:text-white transition-colors z-20"
+            >
+              <X size={24} />
+            </button>
+
+            <div className="flex items-start space-x-8">
+               <div className="h-24 w-24 rounded-3xl bg-white/5 border border-white/10 flex items-center justify-center text-premium-accent font-black text-4xl shadow-2xl relative overflow-hidden">
+                  <div className="absolute inset-0 bg-gradient-to-br from-premium-accent/20 to-transparent" />
+                  <span className="relative z-10">{selectedUser.fullName?.[0] || 'U'}</span>
+               </div>
+               <div className="flex-1 space-y-2">
+                  <div className="flex items-center space-x-3">
+                    <h2 className="text-4xl font-black text-white tracking-tighter uppercase italic">{selectedUser.fullName}</h2>
+                    {selectedUser.isVerified && <span className="bg-emerald-500/10 text-emerald-500 text-[10px] font-black px-2 py-1 rounded-lg border border-emerald-500/20 tracking-widest uppercase">Verified</span>}
                   </div>
-                </td>
-                <td className="px-8 py-6">
-                   <span className={`px-2 py-1 rounded text-[9px] font-black uppercase tracking-widest border ${user.isVerified ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' : 'bg-white/5 text-premium-muted border-white/10'}`}>
-                      {user.isVerified ? 'Verified' : 'Unverified'}
-                   </span>
-                </td>
-                <td className="px-8 py-6">
-                  <div className="flex items-center space-x-2">
-                    <span className="text-slate-300 font-bold">@{user.username}</span>
-                    {user.isBanned && (
-                      <span className="text-[10px] font-black uppercase tracking-widest bg-premium-accent/10 text-premium-accent px-2 py-0.5 rounded border border-premium-accent/20">Banned</span>
-                    )}
+                  <p className="text-premium-muted font-medium text-lg">@{selectedUser.username} • {selectedUser.email}</p>
+                  <div className="flex items-center space-x-6 pt-2">
+                     <div className="flex flex-col">
+                        <span className="text-[10px] font-black text-premium-muted uppercase tracking-[0.2em]">Rank</span>
+                        <span className={`font-black uppercase tracking-widest ${selectedUser.isAdmin ? 'text-amber-400' : 'text-slate-400'}`}>{selectedUser.isAdmin ? 'Command / Admin' : 'Recruit / Player'}</span>
+                     </div>
+                     <div className="h-8 w-px bg-white/10" />
+                     <div className="flex flex-col">
+                        <span className="text-[10px] font-black text-premium-muted uppercase tracking-[0.2em]">Joined</span>
+                        <span className="text-white font-bold">{selectedUser.createdAt ? new Date(selectedUser.createdAt).toLocaleDateString() : 'Unknown'}</span>
+                     </div>
                   </div>
-                </td>
-                <td className="px-8 py-6 text-premium-secondary font-black font-mono text-lg tracking-tighter">
-                  <div className="flex items-center space-x-2">
-                    <Diamond size={14} />
-                    <span>{(user.gems || 0).toLocaleString()}</span>
-                  </div>
-                </td>
-                <td className="px-8 py-6 text-emerald-400 font-bold font-mono">
-                  SAR {Number(user.wonBal).toLocaleString()}
-                </td>
-                <td className="px-8 py-6">
-                  <div className="flex justify-end space-x-3">
-                    <button
-                      onClick={async () => (await handleUpdateBalance(user.id)) && onRefresh()}
-                      className="p-2.5 bg-premium-secondary/10 text-premium-secondary border border-premium-secondary/20 rounded-xl hover:bg-premium-secondary hover:text-white transition-all"
-                      title="Adjust Gems"
+               </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-6">
+               <div className="glass-card p-6 bg-white/5 space-y-4">
+                  <p className="text-[10px] font-black text-premium-accent uppercase tracking-widest">Administrative Actions</p>
+                  <div className="flex flex-col space-y-3">
+                    <button 
+                      onClick={async () => {
+                        const success = await handleToggleAdmin(selectedUser.id, selectedUser.isAdmin);
+                        if (success) {
+                           onRefresh();
+                           setSelectedUser(null);
+                        }
+                      }}
+                      className={`w-full p-4 rounded-xl font-black uppercase tracking-widest text-xs flex items-center justify-between border transition-all ${selectedUser.isAdmin ? 'bg-amber-400/10 border-amber-400/20 text-amber-400' : 'bg-white/5 border-white/10 text-white hover:border-amber-400/50'}`}
                     >
+                      <span>{selectedUser.isAdmin ? 'Revoke Admin' : 'Make Admin'}</span>
+                      <ShieldCheck size={18} />
+                    </button>
+
+                    <button 
+                      onClick={async () => {
+                        const success = await handleToggleBan(selectedUser.id, selectedUser.isBanned);
+                        if (success) {
+                           onRefresh();
+                           setSelectedUser(null);
+                        }
+                      }}
+                      className={`w-full p-4 rounded-xl font-black uppercase tracking-widest text-xs flex items-center justify-between border transition-all ${selectedUser.isBanned ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500' : 'bg-white/5 border-white/10 text-white hover:border-orange-500/50'}`}
+                    >
+                      <span>{selectedUser.isBanned ? 'Lift Ban' : 'Restrict User'}</span>
+                      {selectedUser.isBanned ? <Zap size={18} /> : <ShieldAlert size={18} />}
+                    </button>
+                  </div>
+               </div>
+
+               <div className="glass-card p-6 bg-white/5 space-y-4">
+                  <p className="text-[10px] font-black text-premium-secondary uppercase tracking-widest">Resource Management</p>
+                  <div className="flex flex-col space-y-3">
+                    <button 
+                      onClick={async () => {
+                        const success = await handleUpdateBalance(selectedUser.id);
+                        if (success) {
+                           onRefresh();
+                           setSelectedUser(null);
+                        }
+                      }}
+                      className="w-full p-4 bg-white/5 border border-white/10 rounded-xl font-black uppercase tracking-widest text-xs text-white hover:border-premium-secondary/50 transition-all flex items-center justify-between"
+                    >
+                      <span>Adjust Gems</span>
                       <Diamond size={18} />
                     </button>
-                    <button
-                      onClick={async () => (await handleToggleBan(user.id, user.isBanned)) && onRefresh()}
-                      className={`p-2.5 ${user.isBanned ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' : 'bg-orange-500/10 text-orange-500 border-orange-500/20'} border rounded-xl hover:scale-110 transition-all`}
-                      title={user.isBanned ? 'Unban' : 'Ban User'}
+
+                    <button 
+                      onClick={async () => {
+                        const success = await handleDeleteUser(selectedUser.id);
+                        if (success) {
+                           onRefresh();
+                           setSelectedUser(null);
+                        }
+                      }}
+                      className="w-full p-4 bg-premium-accent/10 border border-premium-accent/20 rounded-xl font-black uppercase tracking-widest text-xs text-premium-accent hover:bg-premium-accent hover:text-white transition-all flex items-center justify-between"
                     >
-                      {user.isBanned ? <Zap size={18} /> : <ShieldAlert size={18} />}
-                    </button>
-                    <button
-                      onClick={async () => (await handleDeleteUser(user.id)) && onRefresh()}
-                      className="p-2.5 bg-premium-accent/10 text-premium-accent border border-premium-accent/20 rounded-xl hover:bg-premium-accent hover:text-white transition-all"
-                      title="Terminate Account"
-                    >
+                      <span>Terminate Account</span>
                       <Trash2 size={18} />
                     </button>
                   </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
+               </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+function UserRow({ user, onRefresh, onOpenDetails }: { user: any, onRefresh: () => void, onOpenDetails: () => void }) {
+  const [notification, setNotification] = useState<{ msg: string, type: 'success' | 'error' } | null>(null);
+
+  const showLocalNotification = (msg: string, type: 'success' | 'error' = 'success') => {
+    setNotification({ msg, type });
+    setTimeout(() => setNotification(null), 4000);
+  };
+
+  return (
+    <>
+      <tr 
+        onClick={onOpenDetails}
+        className="hover:bg-white/[0.04] cursor-pointer transition-all group border-b border-white/5 last:border-0"
+      >
+        <td className="px-8 py-6">
+          <div className="flex items-center space-x-4">
+            <div className="h-12 w-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-premium-accent font-black text-lg group-hover:scale-110 transition-transform shadow-inner relative">
+              {user.fullName?.[0] || 'U'}
+              {user.isVerified && (
+                 <div className="absolute -top-1 -right-1 w-4 h-4 bg-emerald-500 rounded-full border-2 border-premium-card flex items-center justify-center">
+                    <div className="w-1.5 h-1.5 bg-white rounded-full" />
+                 </div>
+              )}
+            </div>
+            <div>
+              <div className="font-black text-white text-base tracking-tight">{user.fullName || 'No Name'}</div>
+              <div className="text-xs text-premium-muted font-medium">{user.email}</div>
+            </div>
+          </div>
+        </td>
+        <td className="px-8 py-6">
+          <span className="text-slate-300 font-bold">@{user.username}</span>
+          {user.isBanned && (
+            <span className="ml-2 text-[9px] font-black uppercase tracking-widest bg-premium-accent/20 text-premium-accent px-1.5 py-0.5 rounded">Banned</span>
+          )}
+        </td>
+        <td className="px-8 py-6 text-premium-secondary font-black font-mono text-lg tracking-tighter">
+          <div className="flex items-center space-x-2">
+            <Diamond size={14} />
+            <span>{(user.gems || 0).toLocaleString()}</span>
+          </div>
+        </td>
+        <td className="px-8 py-6">
+           <span className={`px-2 py-1 rounded text-[9px] font-black uppercase tracking-widest border ${user.isAdmin ? 'bg-amber-400/10 text-amber-400 border-amber-400/20 shadow-[0_0_10px_rgba(251,191,36,0.1)]' : 'bg-white/5 text-premium-muted border-white/10'}`}>
+              {user.isAdmin ? 'Command' : 'Recruit'}
+           </span>
+        </td>
+        <td className="px-8 py-6 text-[10px] font-black text-premium-muted uppercase tracking-widest">
+          {user.createdAt ? new Date(user.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Prior Era'}
+        </td>
+        <td className="px-8 py-6 text-right">
+           <div className="p-2 text-premium-muted group-hover:text-premium-accent transition-colors flex justify-end">
+              <UserCog size={20} />
+           </div>
+        </td>
+      </tr>
+
+      {notification && (
+        <div className="fixed bottom-8 right-8 z-[200] animate-in slide-in-from-right-10 duration-500">
+          <div className={`glass-card p-6 border-l-4 flex items-center space-x-4 shadow-2xl min-w-[320px] ${
+            notification.type === 'success' ? 'border-emerald-500 bg-emerald-500/5' : 'border-premium-accent bg-premium-accent/5'
+          }`}>
+             <div className={`p-2 rounded-lg ${notification.type === 'success' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-premium-accent/10 text-premium-accent'}`}>
+               {notification.type === 'success' ? <Zap size={20} /> : <ShieldAlert size={20} />}
+             </div>
+             <div>
+               <p className="text-[10px] font-black uppercase tracking-widest text-premium-muted">System Message</p>
+               <p className="text-white font-bold tracking-tight">{notification.msg}</p>
+             </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 
@@ -1040,7 +1189,8 @@ function AchievementList({ achievements, loading, onRefresh }: { achievements: a
     try {
       await axios.delete(`${BASE_URL}/achievements/${id}`);
       onRefresh();
-    } catch (e) { alert("Deletion failed"); }
+      showNotification("Milestone removed");
+    } catch (e) { showNotification("Failed to delete milestone", "error"); }
   }
 
   if (loading) return <div className="h-full flex items-center justify-center text-premium-muted font-bold tracking-widest uppercase italic">FORGING MILESTONES...</div>;
@@ -1277,44 +1427,73 @@ function UserRanks({ users, loading }: { users: any[], loading: boolean }) {
 
 function AuditLogs({ logs, loading }: { logs: any[], loading: boolean }) {
   if (loading) return <div className="h-full flex items-center justify-center text-premium-muted font-bold tracking-widest">DECRYPTING LOGS...</div>;
+
+  const getActionLabel = (action: string) => {
+    switch (action) {
+      case 'DELETE_USER': return { label: 'Account Termination', color: 'text-premium-accent bg-premium-accent/10' };
+      case 'BAN_USER':
+      case 'TOGGLE_BAN': return { label: 'Security Restriction', color: 'text-orange-500 bg-orange-500/10' };
+      case 'UPDATE_BALANCE': return { label: 'Resource Injection', color: 'text-premium-secondary bg-premium-secondary/10' };
+      case 'TOGGLE_ADMIN': return { label: 'Rank Adjustment', color: 'text-amber-400 bg-amber-400/10' };
+      default: return { label: action, color: 'text-slate-400 bg-white/5' };
+    }
+  };
+
   return (
     <div className="space-y-8 animate-in slide-in-from-left-4 duration-700">
       <div>
-        <h1 className="text-4xl font-black text-white tracking-tighter uppercase italic">Economy Audit</h1>
-        <p className="text-premium-muted font-medium mt-2">Resource tracking and transactional history</p>
+        <h1 className="text-4xl font-black text-white tracking-tighter uppercase italic">Command Audit</h1>
+        <p className="text-premium-muted font-medium mt-2">Persistent ledger of administrative operations</p>
       </div>
 
       <div className="glass-card overflow-hidden">
         <table className="w-full text-left">
           <thead className="bg-white/5 border-b border-white/5">
             <tr>
-              <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-premium-muted">Target</th>
-              <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-premium-muted">Vector</th>
-              <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-premium-muted">Mission Reason</th>
+              <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-premium-muted">Operation</th>
+              <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-premium-muted">Target ID</th>
+              <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-premium-muted">Activity Intelligence</th>
               <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-premium-muted text-right">Timestamp</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-white/5">
-            {logs.map(log => (
-              <tr key={log.id} className="hover:bg-white/[0.01] transition-colors">
-                <td className="px-8 py-5 text-sm font-bold text-white tracking-tight">@{log.user?.username || 'Redacted'}</td>
-                <td className="px-8 py-5">
-                  <div className={`flex items-center space-x-2 font-black text-base italic ${log.amount > 0 ? 'text-emerald-400' : 'text-premium-accent'}`}>
-                    <span>{log.amount > 0 ? '+' : ''}{log.amount}</span>
-                    <Diamond size={14} />
-                  </div>
-                </td>
-                <td className="px-8 py-5 text-premium-muted text-xs font-medium">{log.description}</td>
-                <td className="px-8 py-5 text-premium-muted text-[10px] font-black text-right uppercase tracking-tighter">
-                  {new Date(log.createdAt).toLocaleString()}
+            {logs.map(log => {
+              const action = getActionLabel(log.action);
+              let detailsText = '';
+              try {
+                const d = JSON.parse(log.details);
+                detailsText = Object.entries(d).map(([k, v]) => `${k}: ${v}`).join(' | ');
+              } catch {
+                detailsText = log.details;
+              }
+
+              return (
+                <tr key={log.id} className="hover:bg-white/[0.01] transition-colors">
+                  <td className="px-8 py-5">
+                    <span className={`px-3 py-1 rounded text-[9px] font-black uppercase tracking-widest border border-white/5 ${action.color}`}>
+                      {action.label}
+                    </span>
+                  </td>
+                  <td className="px-8 py-5 text-sm font-bold text-white tracking-tight">#{log.target_id || 'Global'}</td>
+                  <td className="px-8 py-5 text-premium-muted text-xs font-medium italic">{detailsText}</td>
+                  <td className="px-8 py-5 text-premium-muted text-[10px] font-black text-right uppercase tracking-tighter">
+                    {new Date(log.createdAt).toLocaleString()}
+                  </td>
+                </tr>
+              );
+            })}
+            {logs.length === 0 && (
+              <tr>
+                <td colSpan={4} className="p-16 text-center">
+                  <p className="text-premium-muted font-bold uppercase tracking-[0.3em] italic">No command signals detected in history</p>
                 </td>
               </tr>
-            ))}
+            )}
           </tbody>
         </table>
       </div>
     </div>
-  )
+  );
 }
 
 function Broadcaster() {

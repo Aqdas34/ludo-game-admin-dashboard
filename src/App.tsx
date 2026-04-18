@@ -530,7 +530,7 @@ function App() {
                 <p className="text-premium-muted font-medium">Verify Backend Core (Port 3005) & Database Status</p>
               </div>
               <button
-                onClick={fetchData}
+                onClick={() => fetchData(false)}
                 className="px-8 py-3 bg-white/5 border border-white/10 rounded-2xl text-premium-accent font-black uppercase tracking-widest hover:bg-premium-accent/10 transition-all"
               >
                 Retry Reconnection
@@ -538,10 +538,10 @@ function App() {
             </div>
           )}
           {!error && activeTab === 'dashboard' && <DashboardHome stats={stats} loading={loading} />}
-          {!error && activeTab === 'users' && <UserList users={users} loading={loading} onRefresh={fetchData} />}
+          {!error && activeTab === 'users' && <UserList users={users} loading={loading} onRefresh={() => fetchData(false)} />}
           {!error && activeTab === 'ranks' && <UserRanks users={users} loading={loading} />}
-          {!error && activeTab === 'achievements' && <AchievementList achievements={achievements} loading={loading} onRefresh={fetchData} />}
-          {!error && activeTab === 'gemstore' && <GemStoreManager packages={gemPackages} loading={loading} onRefresh={fetchData} />}
+          {!error && activeTab === 'achievements' && <AchievementList achievements={achievements} loading={loading} onRefresh={() => fetchData(false)} />}
+          {!error && activeTab === 'gemstore' && <GemStoreManager packages={gemPackages} loading={loading} onRefresh={() => fetchData(false)} />}
           {!error && activeTab === 'games' && <LiveGames rooms={liveGames} loading={loading} />}
           {!error && activeTab === 'logs' && <AuditLogs logs={auditLogs} loading={loading} />}
           {!error && activeTab === 'purchases' && <PurchaseList purchases={purchases} loading={loading} />}

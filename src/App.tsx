@@ -297,7 +297,7 @@ function App() {
                   value={recoveryEmail}
                   onChange={(e) => setRecoveryEmail(e.target.value)}
                   className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-white focus:outline-none focus:border-premium-accent/50"
-                  placeholder="name@dreamludo.com"
+                  placeholder="name@xludo.com"
                   required
                 />
               </div>
@@ -388,7 +388,7 @@ function App() {
       <aside className="w-72 border-r border-white/5 flex flex-col p-6 space-y-8 bg-premium-card/30 backdrop-blur-3xl">
         <div className="flex items-center space-x-3 px-2 mb-4">
           <div className="w-12 h-12 rounded-xl flex items-center justify-center p-1.5 bg-white/5 border border-white/10 shadow-neon-purple mt-2">
-            <img src="./logo.png" alt="XLUDO" className="w-full h-full object-contain" />
+            <img src="/logo.png" alt="XLUDO" className="w-full h-full object-contain" />
           </div>
           <div className="flex flex-col pt-3">
             <span className="text-2xl font-black tracking-tighter text-white leading-none">
@@ -847,7 +847,7 @@ function DashboardHome({ stats, loading }: { stats: Stats | null, loading: boole
     <div className="space-y-10 animate-in fade-in slide-in-from-right-4 duration-700">
       <div>
         <h1 className="text-4xl font-black text-white tracking-tighter uppercase italic">Arena Overview</h1>
-        <p className="text-premium-muted font-medium mt-2">The Pulse of DreamLudo Ecosystem</p>
+        <p className="text-premium-muted font-medium mt-2">The Pulse of XLudo Ecosystem</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">

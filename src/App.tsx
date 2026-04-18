@@ -57,6 +57,7 @@ function App() {
   const [gemPackages, setGemPackages] = useState<any[]>([]);
   const [purchases, setPurchases] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -74,12 +75,13 @@ function App() {
       return;
     }
     fetchData();
-    const interval = setInterval(fetchData, 30000); // 30s auto-refresh
+    const interval = setInterval(() => fetchData(true), 30000); // 30s silent auto-refresh
     return () => clearInterval(interval);
   }, [isAuthenticated]);
 
-  const fetchData = async () => {
-    setLoading(true);
+  const fetchData = async (isBackground = false) => {
+    if (!isBackground) setLoading(true);
+    setIsRefreshing(true);
     try {
       const [
         statsRes,
@@ -114,11 +116,16 @@ function App() {
         setLoginError('Session expired. Please login again.');
       } else {
         console.error("Global fetch error:", error);
-        setError("COMMUNICATION BREACH: Backend Unreachable.");
+        // Only show full screen error if it's the first load or if we have no data
+        if (!stats && !isBackground) {
+           setError("COMMUNICATION BREACH: Backend Unreachable.");
+        }
       }
     } finally {
-      // Set loading to false after a short delay to allow parallel promises to start resolving
-      setTimeout(() => setLoading(false), 800);
+      if (!isBackground) {
+        setTimeout(() => setLoading(false), 800);
+      }
+      setIsRefreshing(false);
     }
   };
 
@@ -490,10 +497,10 @@ function App() {
           <div className="flex items-center space-x-6">
             <button
               className="p-2.5 bg-white/5 border border-white/10 rounded-xl text-premium-muted hover:text-white hover:bg-white/10 transition-all group"
-              onClick={fetchData}
+              onClick={() => fetchData(false)}
               title="Refresh Data"
             >
-              <RefreshCw size={20} className={loading ? "animate-spin text-premium-accent" : "group-hover:rotate-180 transition-transform duration-500"} />
+              <RefreshCw size={20} className={isRefreshing ? "animate-spin text-premium-accent" : "group-hover:rotate-180 transition-transform duration-500"} />
             </button>
             <div className="flex items-center space-x-3 pl-4 border-l border-white/10">
               <div className="text-right">

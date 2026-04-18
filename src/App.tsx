@@ -551,7 +551,7 @@ function App() {
           {!error && activeTab === 'gemstore' && <GemStoreManager packages={gemPackages} loading={loading} onRefresh={() => fetchData(false)} showNotification={showNotification} />}
           {!error && activeTab === 'games' && <LiveGames rooms={liveGames} loading={loading} />}
           {!error && activeTab === 'logs' && <AuditLogs logs={auditLogs} loading={loading} />}
-          {!error && activeTab === 'purchases' && <PurchaseList purchases={purchases} loading={loading} />}
+          {!error && activeTab === 'purchases' && <PurchaseList purchases={purchases} loading={loading} showNotification={showNotification} />}
           {!error && activeTab === 'broadcast' && <Broadcaster showNotification={showNotification} />}
           {!error && activeTab === 'profile' && <AdminProfileSettings showNotification={showNotification} />}
         </div>
@@ -579,7 +579,7 @@ function App() {
 
 // --- API Helpers ---
 
-function GemStoreManager({ packages, loading, onRefresh }: { packages: any[], loading: boolean, onRefresh: () => void }) {
+function GemStoreManager({ packages, loading, onRefresh, showNotification }: { packages: any[], loading: boolean, onRefresh: () => void, showNotification: (msg: string, type?: 'success' | 'error') => void }) {
   const [showAdd, setShowAdd] = useState(false);
   const [newPkg, setNewPkg] = useState({
     id: '',
@@ -599,7 +599,8 @@ function GemStoreManager({ packages, loading, onRefresh }: { packages: any[], lo
       await axios.post(`${BASE_URL}/gem-packages`, newPkg);
       setShowAdd(false);
       onRefresh();
-    } catch (e) { alert("Forge failed"); }
+      showNotification("Package forged successfully");
+    } catch (e) { showNotification("Forge failed", "error"); }
   };
 
   const handleDelete = async (id: string) => {
@@ -607,7 +608,8 @@ function GemStoreManager({ packages, loading, onRefresh }: { packages: any[], lo
     try {
       await axios.delete(`${BASE_URL}/gem-packages/${id}`);
       onRefresh();
-    } catch (e) { alert("Deletion failed"); }
+      showNotification("Package removed");
+    } catch (e) { showNotification("Deletion failed", "error"); }
   }
 
   const toggleActive = async (pkg: any) => {
@@ -784,52 +786,76 @@ function GemStoreManager({ packages, loading, onRefresh }: { packages: any[], lo
   );
 }
 
-const handleToggleBan = async (userId: number, isBanned: boolean) => {
-  if (!window.confirm(`Are you sure you want to ${isBanned ? 'unban' : 'ban'} this user?`)) return;
-  try {
-    await axios.post(`${BASE_URL}/users/toggle-ban`, { userId, isBanned: !isBanned });
-    return true;
-  } catch (e) { return false; }
-};
-
-const handleDeleteUser = async (userId: number) => {
-  if (!window.confirm("PERMANENT DELETE: Are you sure you want to completely remove this user? This cannot be undone.")) return;
+const handleDeleteUser = async (userId: number, showNotification: (msg: string, type?: 'success' | 'error') => void) => {
+  if (!window.confirm("CRITICAL: Permanently erase this user and all associated data?")) return false;
   try {
     await axios.delete(`${BASE_URL}/users/${userId}`);
+    showNotification("User account terminated");
     return true;
-  } catch (e) { return false; }
+  } catch (e) { 
+    showNotification("Termination failed", "error");
+    return false; 
+  }
 };
 
-const handleToggleAdmin = async (userId: number, isAdmin: boolean) => {
-  if (!window.confirm(`SECURITY CLEARANCE: ${isAdmin ? 'Revoke' : 'Grant'} administrative privileges for this user?`)) return;
+const handleToggleAdmin = async (userId: number, isAdmin: boolean, showNotification: (msg: string, type?: 'success' | 'error') => void) => {
+  if (!window.confirm(`SECURITY CLEARANCE: ${isAdmin ? 'Revoke' : 'Grant'} administrative privileges for this user?`)) return false;
   try {
     await axios.post(`${BASE_URL}/users/toggle-admin`, { userId, isAdmin: !isAdmin });
+    showNotification(`Rank ${!isAdmin ? 'Granted' : 'Revoked'}`);
     return true;
-  } catch (e) { return false; }
+  } catch (e) { 
+    showNotification("Authorization failed", "error");
+    return false; 
+  }
 };
 
-const handleUpdateBalance = async (userId: number) => {
+const handleUpdateBalance = async (userId: number, showNotification: (msg: string, type?: 'success' | 'error') => void) => {
   const val = window.prompt("Enter total gems to set:");
-  if (val === null) return;
+  if (val === null) return false;
   try {
     await axios.post(`${BASE_URL}/users/update-balance`, { userId, gems: parseInt(val) });
+    showNotification("Resources adjusted");
     return true;
-  } catch (e) { return false; }
+  } catch (e) { 
+    showNotification("Adjustment failed", "error");
+    return false; 
+  }
 };
 
-const handleDeletePurchase = async (purchaseId: string) => {
-  if (!window.confirm("Delete this transaction record? This cannot be undone.")) return;
+const handleDeletePurchase = async (purchaseId: string, showNotification: (msg: string, type?: 'success' | 'error') => void) => {
+  if (!window.confirm("Delete this transaction record? This cannot be undone.")) return false;
   try {
     await axios.delete(`${BASE_URL}/purchases/${purchaseId}`);
+    showNotification("Transaction purged");
     return true;
-  } catch (e) { return false; }
+  } catch (e) { 
+    showNotification("Purge failed", "error");
+    return false; 
+  }
 };
 
-const handleVerifyPurchase = async (purchaseId: string) => {
+const handleVerifyPurchase = async (purchaseId: string, showNotification: (msg: string, type?: 'success' | 'error') => void) => {
   try {
     const res = await axios.post(`${BASE_URL}/verify-purchase/${purchaseId}`);
-    return res.data.msg;
-  } catch (e) { return "Verification failed"; }
+    showNotification(res.data.msg);
+    return true;
+  } catch (e) { 
+    showNotification("Verification failed", "error");
+    return false; 
+  }
+};
+
+const handleToggleBan = async (userId: number, isBanned: boolean, showNotification: (msg: string, type?: 'success' | 'error') => void) => {
+  if (!window.confirm(`ACTION: ${isBanned ? 'Lift' : 'Apply'} security restrictions on this user?`)) return false;
+  try {
+    await axios.post(`${BASE_URL}/users/toggle-ban`, { userId, isBanned: !isBanned });
+    showNotification(`User ${!isBanned ? 'Restricted' : 'Unlocked'}`);
+    return true;
+  } catch (e) { 
+    showNotification("Restriction update failed", "error");
+    return false; 
+  }
 };
 
 // --- Custom Components ---
@@ -942,7 +968,7 @@ function DashboardHome({ stats, loading }: { stats: Stats | null, loading: boole
     </div>
   );
 }
-function UserList({ users, loading, onRefresh }: { users: any[], loading: boolean, onRefresh: () => void }) {
+function UserList({ users, loading, onRefresh, showNotification }: { users: any[], loading: boolean, onRefresh: () => void, showNotification: (msg: string, type?: 'success' | 'error') => void }) {
   const [selectedUser, setSelectedUser] = useState<any | null>(null);
 
   if (loading) return <div className="h-full flex items-center justify-center text-premium-muted font-bold tracking-widest uppercase italic">FORGING ARENA...</div>;
@@ -972,7 +998,7 @@ function UserList({ users, loading, onRefresh }: { users: any[], loading: boolea
             </thead>
             <tbody className="divide-y divide-white/5">
               {users.map((user) => (
-                <UserRow key={user.id} user={user} onRefresh={onRefresh} onOpenDetails={() => setSelectedUser(user)} />
+                <UserRow key={user.id} user={user} onOpenDetails={() => setSelectedUser(user)} />
               ))}
             </tbody>
           </table>
@@ -1020,7 +1046,7 @@ function UserList({ users, loading, onRefresh }: { users: any[], loading: boolea
                   <div className="flex flex-col space-y-3">
                     <button 
                       onClick={async () => {
-                        const success = await handleToggleAdmin(selectedUser.id, selectedUser.isAdmin);
+                        const success = await handleToggleAdmin(selectedUser.id, selectedUser.isAdmin, showNotification);
                         if (success) {
                            onRefresh();
                            setSelectedUser(null);
@@ -1034,7 +1060,7 @@ function UserList({ users, loading, onRefresh }: { users: any[], loading: boolea
 
                     <button 
                       onClick={async () => {
-                        const success = await handleToggleBan(selectedUser.id, selectedUser.isBanned);
+                        const success = await handleToggleBan(selectedUser.id, selectedUser.isBanned, showNotification);
                         if (success) {
                            onRefresh();
                            setSelectedUser(null);
@@ -1053,7 +1079,7 @@ function UserList({ users, loading, onRefresh }: { users: any[], loading: boolea
                   <div className="flex flex-col space-y-3">
                     <button 
                       onClick={async () => {
-                        const success = await handleUpdateBalance(selectedUser.id);
+                        const success = await handleUpdateBalance(selectedUser.id, showNotification);
                         if (success) {
                            onRefresh();
                            setSelectedUser(null);
@@ -1067,7 +1093,7 @@ function UserList({ users, loading, onRefresh }: { users: any[], loading: boolea
 
                     <button 
                       onClick={async () => {
-                        const success = await handleDeleteUser(selectedUser.id);
+                        const success = await handleDeleteUser(selectedUser.id, showNotification);
                         if (success) {
                            onRefresh();
                            setSelectedUser(null);
@@ -1088,14 +1114,7 @@ function UserList({ users, loading, onRefresh }: { users: any[], loading: boolea
   );
 }
 
-function UserRow({ user, onRefresh, onOpenDetails }: { user: any, onRefresh: () => void, onOpenDetails: () => void }) {
-  const [notification, setNotification] = useState<{ msg: string, type: 'success' | 'error' } | null>(null);
-
-  const showLocalNotification = (msg: string, type: 'success' | 'error' = 'success') => {
-    setNotification({ msg, type });
-    setTimeout(() => setNotification(null), 4000);
-  };
-
+function UserRow({ user, onOpenDetails }: { user: any, onOpenDetails: () => void }) {
   return (
     <>
       <tr 
@@ -1144,27 +1163,11 @@ function UserRow({ user, onRefresh, onOpenDetails }: { user: any, onRefresh: () 
            </div>
         </td>
       </tr>
-
-      {notification && (
-        <div className="fixed bottom-8 right-8 z-[200] animate-in slide-in-from-right-10 duration-500">
-          <div className={`glass-card p-6 border-l-4 flex items-center space-x-4 shadow-2xl min-w-[320px] ${
-            notification.type === 'success' ? 'border-emerald-500 bg-emerald-500/5' : 'border-premium-accent bg-premium-accent/5'
-          }`}>
-             <div className={`p-2 rounded-lg ${notification.type === 'success' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-premium-accent/10 text-premium-accent'}`}>
-               {notification.type === 'success' ? <Zap size={20} /> : <ShieldAlert size={20} />}
-             </div>
-             <div>
-               <p className="text-[10px] font-black uppercase tracking-widest text-premium-muted">System Message</p>
-               <p className="text-white font-bold tracking-tight">{notification.msg}</p>
-             </div>
-          </div>
-        </div>
-      )}
     </>
   );
 }
 
-function AchievementList({ achievements, loading, onRefresh }: { achievements: any[], loading: boolean, onRefresh: () => void }) {
+function AchievementList({ achievements, loading, onRefresh, showNotification }: { achievements: any[], loading: boolean, onRefresh: () => void, showNotification: (msg: string, type?: 'success' | 'error') => void }) {
   const [showAdd, setShowAdd] = useState(false);
   const [newAchv, setNewAchv] = useState({
     name: '',
@@ -1181,7 +1184,8 @@ function AchievementList({ achievements, loading, onRefresh }: { achievements: a
       await axios.post(`${BASE_URL}/achievements`, newAchv);
       setShowAdd(false);
       onRefresh();
-    } catch (e) { alert("Forge failed"); }
+      showNotification("Milestone forged");
+    } catch (e) { showNotification("Forge failed", "error"); }
   };
 
   const handleDelete = async (id: string) => {
@@ -1496,7 +1500,7 @@ function AuditLogs({ logs, loading }: { logs: any[], loading: boolean }) {
   );
 }
 
-function Broadcaster() {
+function Broadcaster({ showNotification }: { showNotification: (msg: string, type?: 'success' | 'error') => void }) {
   const [title, setTitle] = useState('');
   const [msg, setMsg] = useState('');
   const [type, setType] = useState('info');
@@ -1521,12 +1525,12 @@ function Broadcaster() {
     setSending(true);
     try {
       await axios.post(`${BASE_URL}/broadcast`, { title, message: msg, type });
-      alert("Broadcast successful!");
+      showNotification("Transmission successful");
       setMsg('');
       setTitle('');
       fetchHistory();
     } catch (e) {
-      alert("Broadcast failed");
+      showNotification("Transmission failed", "error");
     } finally {
       setSending(false);
     }
@@ -1623,7 +1627,7 @@ function Broadcaster() {
   );
 }
 
-function PurchaseList({ purchases, loading }: { purchases: any[], loading: boolean }) {
+function PurchaseList({ purchases, loading, showNotification }: { purchases: any[], loading: boolean, showNotification: (msg: string, type?: 'success' | 'error') => void }) {
   if (loading) return <div className="h-full flex items-center justify-center text-premium-muted font-bold tracking-widest uppercase animate-pulse">Retrieving Financial Logs...</div>;
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-700">
@@ -1683,7 +1687,10 @@ function PurchaseList({ purchases, loading }: { purchases: any[], loading: boole
                   <div className="flex items-center justify-end space-x-2">
                     {purchase.status === 'pending' && (
                       <button
-                        onClick={async () => (await handleVerifyPurchase(purchase.id)) && window.location.reload()}
+                        onClick={async () => {
+                          const success = await handleVerifyPurchase(purchase.id, showNotification);
+                          if (success) window.location.reload();
+                        }}
                         className="p-2 text-premium-secondary hover:text-white transition-colors"
                         title="Force Verify Status"
                       >
@@ -1691,7 +1698,10 @@ function PurchaseList({ purchases, loading }: { purchases: any[], loading: boole
                       </button>
                     )}
                     <button
-                      onClick={async () => (await handleDeletePurchase(purchase.id)) && window.location.reload()}
+                      onClick={async () => {
+                        const success = await handleDeletePurchase(purchase.id, showNotification);
+                        if (success) window.location.reload();
+                      }}
                       className="p-2 text-premium-muted hover:text-premium-accent transition-colors"
                       title="Delete Transaction"
                     >
@@ -1714,23 +1724,23 @@ function PurchaseList({ purchases, loading }: { purchases: any[], loading: boole
 }
 
 
-function AdminProfileSettings() {
+function AdminProfileSettings({ showNotification }: { showNotification: (msg: string, type?: 'success' | 'error') => void }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [updating, setUpdating] = useState(false);
 
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email && !password) return alert("Please enter new email or password");
+    if (!email && !password) return showNotification("Please enter new email or password", "error");
     setUpdating(true);
     try {
       await axios.post(`${BASE_URL}/update-profile`, { email, password });
-      alert("Profile updated successfully!");
+      showNotification("Profile secrets updated");
       setEmail('');
       setPassword('');
-      window.location.reload(); 
+      setTimeout(() => window.location.reload(), 1500); 
     } catch (e: any) {
-      alert(e.response?.data?.msg || "Update failed");
+      showNotification(e.response?.data?.msg || "Update failed", "error");
     } finally {
       setUpdating(false);
     }
